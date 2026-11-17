@@ -1,0 +1,1592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="UC Receipt">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="format-detection" content="telephone=no">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+<meta name="theme-color" content="#0B1F2A">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Ultra Clear — Receipt</title>
+<style>
+  :root{
+    --ocean:#005D8F; --sky:#00B8D9; --spring:#00E5FF; --onyx:#0B1F2A;
+    --ink:#12232E; --mute:#6b7c88; --line:#dde5ea; --bg:#f4f7f9; --card:#fff;
+    --ok:#1a7f3c; --okbg:#e6f4ec; --warn:#b45309; --warnbg:#fef3e2;
+    --bad:#b91c1c; --badbg:#fde8e8; --leaf:#1f7a4d;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);-webkit-text-size-adjust:100%;
+       font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       padding-bottom:env(safe-area-inset-bottom)}
+  .wrap{max-width:560px;margin:0 auto;padding:max(14px,env(safe-area-inset-top)) 16px 30px}
+  header.top{background:linear-gradient(135deg,var(--onyx),var(--ocean));color:#fff;
+       border-radius:14px;padding:16px 18px;margin-bottom:14px}
+  header.top h1{margin:0;font-size:19px}
+  header.top p{margin:4px 0 0;font-size:12.5px;opacity:.85}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px;margin-bottom:12px}
+  .card h2{margin:0 0 10px;font-size:12.5px;text-transform:uppercase;letter-spacing:1px;color:var(--ocean)}
+  label{display:block;font-size:12.5px;font-weight:600;margin:10px 0 5px}
+  .req{color:var(--bad)} .opt{color:var(--mute);font-weight:400}
+  input,select{width:100%;padding:12px;border:1px solid var(--line);border-radius:9px;
+       font:inherit;font-size:16px;background:var(--card);color:var(--ink)} /* 16px: no iOS zoom */
+  input:focus,select:focus{outline:2px solid var(--sky);outline-offset:-1px}
+  input[readonly]{background:var(--bg);color:var(--mute)}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row>div{flex:1 1 150px;min-width:0}
+  .seg{display:flex;gap:8px}
+  .seg button{flex:1;padding:12px 6px;border:1px solid var(--line);border-radius:10px;background:var(--card);
+       color:var(--mute);font:inherit;font-weight:700;font-size:14px;cursor:pointer}
+  .seg button[aria-pressed="true"]{background:var(--ocean);border-color:var(--ocean);color:#fff}
+  .item{border:1px solid var(--line);border-radius:11px;padding:10px 12px 12px;margin-bottom:10px;position:relative}
+  .item .x{position:absolute;top:6px;right:8px;border:0;background:none;color:var(--bad);
+       font-size:13px;font-weight:700;cursor:pointer;padding:4px}
+  button.go{width:100%;padding:15px;border:0;border-radius:11px;cursor:pointer;
+       background:linear-gradient(135deg,var(--spring),var(--sky));color:#02121F;
+       font:inherit;font-size:16px;font-weight:800}
+  button.go:disabled{opacity:.55}
+  button.ghost{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--card);
+       color:var(--ocean);font:inherit;font-weight:700;font-size:14px;cursor:pointer}
+  .codebar{display:flex;gap:8px}
+  .codebar input{flex:1;text-transform:uppercase;letter-spacing:1px}
+  .codebar button{width:auto;flex:none;padding:0 18px}
+  .msg{border-radius:10px;padding:11px 14px;font-size:13px;line-height:1.6;margin-top:12px}
+  .msg.ok{background:var(--okbg);border-left:4px solid var(--ok);color:var(--ok)}
+  .msg.warn{background:var(--warnbg);border-left:4px solid var(--warn);color:var(--warn)}
+  .msg.bad{background:var(--badbg);border-left:4px solid var(--bad);color:var(--bad)}
+  .tot{display:flex;justify-content:space-between;font-size:14px;padding:4px 0;font-variant-numeric:tabular-nums}
+  .tot.big{font-size:18px;font-weight:800;border-top:1px solid var(--line);margin-top:6px;padding-top:10px}
+  .tot .disc{color:var(--ok)}
+  .pend{font-size:12px;color:var(--warn);text-align:center;margin-top:8px}
+  [hidden]{display:none!important}
+
+  /* ── the receipt itself: always light, it is a document ── */
+  #paper{background:#fff;color:#12232E;border:1px solid #dde5ea;border-radius:14px;padding:22px 20px;margin-bottom:14px}
+  #paper .logo{display:block;max-height:48px;max-width:210px;margin-bottom:4px}
+  #paper .brand{font-size:21px;font-weight:800;letter-spacing:-.3px;color:#0B1F2A}
+  #paper .brand span{color:#00A0C0}
+  #paper .tag{font-size:11px;color:#6b7c88;letter-spacing:.4px}
+  #paper .rno{display:flex;justify-content:space-between;align-items:flex-end;margin:14px 0 4px;
+       padding-bottom:10px;border-bottom:2px solid #0B1F2A}
+  #paper .rno b{font-size:15px}
+  #paper .rno small{font-size:11px;color:#6b7c88;display:block;text-transform:uppercase;letter-spacing:1px}
+  #paper dl{display:grid;grid-template-columns:auto 1fr;gap:3px 14px;margin:12px 0;font-size:13.5px}
+  #paper dt{color:#6b7c88} #paper dd{margin:0;text-align:right;font-weight:600;overflow-wrap:anywhere}
+  #paper table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px}
+  #paper th{font-size:10.5px;text-transform:uppercase;letter-spacing:.8px;color:#6b7c88;text-align:left;
+       padding:7px 0;border-bottom:1px solid #dde5ea;font-weight:700}
+  #paper td{padding:8px 0;border-bottom:1px solid #eef2f5;vertical-align:top}
+  #paper th.n,#paper td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap;padding-left:8px}
+  #paper td small{color:#6b7c88;display:block}
+  #paper .sum{margin-top:10px}
+  #paper .sum .tot.big{border-top:2px solid #0B1F2A}
+  #paper .paid{display:inline-block;margin-top:10px;padding:3px 11px;border-radius:20px;font-size:11.5px;
+       font-weight:800;letter-spacing:1px;background:#e6f4ec;color:#1a7f3c}
+  #paper .paid.un{background:#fef3e2;color:#b45309}
+  #paper .foot{margin-top:18px;padding-top:14px;border-top:1px dashed #c9d5dc;font-size:11.5px;color:#4a5b66;line-height:1.65}
+  #paper .foot h4{margin:12px 0 3px;font-size:10.5px;text-transform:uppercase;letter-spacing:1px;color:#005D8F}
+  #paper .foot h4:first-child{margin-top:0}
+  #paper .foot ul{margin:0;padding-left:16px}
+  #paper .forest{margin-top:14px;padding:11px 13px;border-radius:10px;background:#eaf6ef;color:#1f7a4d;font-size:12px;line-height:1.6}
+  #paper .thanks{text-align:center;font-weight:800;font-size:13.5px;color:#0B1F2A;margin-top:14px}
+  .share{display:grid;grid-template-columns:1fr 1fr 1fr;gap:9px;margin-bottom:10px}
+  .hint{font-size:12px;color:var(--mute);margin:10px 2px 8px;line-height:1.55}
+  .hrow{display:flex;gap:10px;align-items:center;width:100%;text-align:left;background:var(--card);color:var(--ink);border:1px solid var(--line);
+       border-radius:11px;padding:11px 13px;margin-bottom:8px;font:inherit;cursor:pointer}
+  .hrow .a{flex:1;min-width:0} .hrow b{display:block;font-size:13.5px} .hrow small{color:var(--mute);font-size:11.5px}
+  .hrow .amt{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:13.5px}
+  .chip{font-size:10.5px;font-weight:800;padding:2px 8px;border-radius:20px;white-space:nowrap;background:var(--okbg);color:var(--ok)}
+  .chip.w{background:var(--warnbg);color:var(--warn)} .chip.b{background:var(--badbg);color:var(--bad)}
+  .share button{padding:13px 6px;border:0;border-radius:11px;font:inherit;font-weight:800;font-size:14px;color:#fff;cursor:pointer}
+  .b-wa{background:#128C4B}.b-sms{background:#0A6FD0}.b-mail{background:#5B4BC4}.b-more{background:#0B1F2A}
+
+  @media (prefers-color-scheme:dark){
+    :root{--bg:#0d1720;--card:#13212c;--ink:#e7eef3;--line:#24333f;--mute:#8fa3b0;
+          --okbg:#12301f;--warnbg:#3a2a10;--badbg:#3a1616;--ok:#5fd08d;--warn:#f3b562;--bad:#f58a8a;--ocean:#3fb5e6}
+    .seg button[aria-pressed="true"]{background:#005D8F;border-color:#005D8F}
+  }
+  @media print{
+    body{background:#fff} .noprint{display:none!important}
+    .wrap{padding:0;max-width:none} #paper{border:0;padding:0}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ═════════════════════ FORM VIEW ═════════════════════ -->
+<div id="formView" class="noprint">
+  <header class="top">
+    <h1>Issue a Receipt</h1>
+    <p>Works with or without internet. Every receipt is saved on this device first, then backed up to the office Google Sheet.</p>
+    <p id="net" style="font-weight:700;opacity:1"></p>
+  </header>
+  <div class="card" id="installTip" hidden style="border-color:var(--sky)">
+    <h2>Install this app on the phone</h2>
+    <p class="hint" id="installText" style="margin:0"></p>
+    <button type="button" class="go" id="installBtn" style="margin-top:10px" hidden>Install app</button>
+  </div>
+
+  <form id="rf" novalidate>
+    <div class="card">
+      <h2>Customer</h2>
+      <div class="row">
+        <div><label for="fname">First name <span class="req">*</span></label>
+          <input id="fname" autocomplete="off" autocapitalize="words"></div>
+        <div><label for="lname">Last name <span class="req">*</span></label>
+          <input id="lname" autocomplete="off" autocapitalize="words"></div>
+      </div>
+      <div class="row">
+        <div><label for="phone">Phone / WhatsApp <span class="req">*</span></label>
+          <input id="phone" type="tel" inputmode="tel" placeholder="0722 123 456"></div>
+        <div><label for="email">Email <span class="opt">(optional)</span></label>
+          <input id="email" type="email" inputmode="email" autocapitalize="off"></div>
+      </div>
+      <div class="row">
+        <div><label for="country">Country <span class="req">*</span></label>
+          <select id="country"></select></div>
+        <div><label for="location">Location <span class="req">*</span></label>
+          <input id="location" placeholder="Nairobi – Westlands"></div>
+      </div>
+      <div class="row">
+        <div><label for="dateShow">Date</label><input id="dateShow" readonly tabindex="-1"></div>
+        <div><label for="timeShow">Time</label><input id="timeShow" readonly tabindex="-1"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Products</h2>
+      <div id="items"></div>
+      <button type="button" class="ghost" id="addItem">+ Add another product</button>
+    </div>
+
+    <div class="card">
+      <h2>Code or coupon</h2>
+      <div class="codebar">
+        <input id="code" placeholder="REFERRAL / PROMO CODE" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <button type="button" class="ghost" id="applyCode">Check</button>
+      </div>
+      <div id="codeMsg" class="msg" hidden></div>
+    </div>
+
+    <div class="card">
+      <h2>Payment</h2>
+      <div class="seg" id="method">
+        <button type="button" data-v="Cash" aria-pressed="false">Cash</button>
+        <button type="button" data-v="M-Pesa" aria-pressed="false">M-Pesa</button>
+        <button type="button" data-v="Bank" aria-pressed="false">Bank</button>
+      </div>
+      <div id="refWrap" hidden>
+        <label for="payRef"><span id="refLabel">Reference</span> <span class="req">*</span></label>
+        <input id="payRef" autocomplete="off" autocapitalize="characters" spellcheck="false">
+        <div id="chWrap" hidden><label for="mpesaCh">M-Pesa paid to <span class="req">*</span></label>
+          <select id="mpesaCh"><option value="Till">Till (Buy Goods)</option><option value="Paybill">Paybill</option></select></div>
+        <div id="payerWrap" hidden>
+          <label for="payerPhone">Paid from phone <span class="opt">(if not the customer's own)</span></label>
+          <input id="payerPhone" type="tel" inputmode="tel" autocomplete="off" placeholder="Leave blank if the customer paid">
+        </div>
+      </div>
+      <p class="hint" id="orderRefShow" style="margin:8px 0 0"></p>
+      <div class="row">
+        <div><label for="delivery">Delivery</label>
+          <select id="delivery"><option value="now">Handed over now</option><option value="later">Delivered later</option></select></div>
+        <div id="delDateWrap" hidden><label for="delDate">Delivery date <span class="req">*</span></label><input id="delDate" type="date"></div>
+      </div>
+      <div class="row">
+        <div><label for="agent">Sold by <span class="req">*</span></label><select id="agent"></select>
+          <p class="hint" id="agentSync" style="margin:4px 0 0"></p></div>
+        <div><label for="invoiceNo">Invoice no. <span class="opt">(if already in Sale Capture)</span></label>
+          <input id="invoiceNo" placeholder="INV-2026-0455" autocomplete="off"></div>
+      </div>
+      <div style="margin-top:14px">
+        <div class="tot"><span>Subtotal</span><span id="tSub">—</span></div>
+        <div class="tot" id="tDiscRow" hidden><span class="disc" id="tDiscLbl">Discount</span><span class="disc" id="tDisc"></span></div>
+        <div class="tot big"><span>Total paid</span><span id="tNet">—</span></div>
+      </div>
+    </div>
+
+    <button type="submit" class="go" id="issue">Issue receipt</button>
+    <div id="formMsg" class="msg" hidden></div>
+  </form>
+</div>
+
+<!-- ═════════════════════ RECEIPT VIEW ═════════════════════ -->
+<div id="receiptView" hidden>
+  <div id="sendMsg" class="msg warn noprint" style="margin:0 0 12px"></div>
+  <div id="paper"></div>
+  <div class="noprint">
+    <button class="go" id="shPdf">Share PDF receipt</button>
+    <div id="pdfMsg" class="msg warn" hidden></div>
+    <p class="hint">Opens the share sheet with the PDF attached — choose WhatsApp, Messages or Mail. Or send the receipt as a plain message straight to the customer:</p>
+    <div class="share">
+      <button class="b-wa"   id="shWa">WhatsApp</button>
+      <button class="b-sms"  id="shSms">Text</button>
+      <button class="b-mail" id="shMail">Email</button>
+    </div>
+    <button class="ghost" id="dlPdf" style="margin-bottom:10px">Download PDF</button>
+    <button class="ghost" id="newBtn">New receipt</button>
+    <button class="ghost" id="delBtn" style="margin-top:10px" hidden>Confirm delivered now</button>
+    <button class="ghost" id="revOpen" style="margin-top:10px;color:var(--bad)" hidden>Return, replace or void</button>
+    <div class="card" id="revPanel" style="margin-top:12px" hidden>
+      <h2>Return, replace or void</h2>
+      <div class="seg" id="revKind">
+        <button type="button" data-v="Refund" aria-pressed="true">Return</button>
+        <button type="button" data-v="Replacement" aria-pressed="false">Replace faulty</button>
+        <button type="button" data-v="Void" aria-pressed="false">Void</button>
+      </div>
+      <p class="hint" id="revHint"></p>
+      <div id="revLines"></div>
+      <div class="row">
+        <div id="revRestockWrap"><label for="revRestock">Goods back into sellable stock?</label>
+          <select id="revRestock"><option value="Yes">Yes</option><option value="No">No — faulty or damaged</option></select></div>
+        <div id="revMethodWrap"><label for="revMethod">Money returned by</label>
+          <select id="revMethod"><option>Cash</option><option>M-Pesa</option><option>Bank</option></select></div>
+      </div>
+      <div id="revRefWrap"><label for="revRef">Refund reference <span class="opt">(M-Pesa code or bank ref)</span></label>
+      <input id="revRef" autocomplete="off" autocapitalize="characters" spellcheck="false"></div>
+      <label for="revReason">Reason <span class="req">*</span></label>
+      <input id="revReason" autocomplete="off" placeholder="e.g. wrong colour, returned unopened">
+      <label for="revPin">Supervisor PIN <span class="req">*</span></label>
+      <input id="revPin" type="password" inputmode="numeric" autocomplete="off">
+      <button class="go" id="revGo" style="margin-top:14px;background:var(--bad);color:#fff">Confirm</button>
+      <button class="ghost" id="revCancel" style="margin-top:10px">Cancel</button>
+      <div id="revMsg" class="msg" hidden></div>
+    </div>
+  </div>
+</div>
+
+<!-- ═════════════════════ HISTORY VIEW ═════════════════════ -->
+<div id="histView" class="noprint" hidden>
+  <header class="top">
+    <h1>Receipts on this device</h1>
+    <p>This device's own copy. Tap one to open it and share it again. "Waiting" means it has not reached the office sheet yet.</p>
+    <p id="devShow" style="opacity:.85"></p>
+  </header>
+  <div id="histList"></div>
+  <div class="card">
+    <h2>Supervisor: find any receipt</h2>
+    <p class="hint" style="margin-top:0">Opens a receipt issued on any device, to void or refund it. Needs signal and the supervisor PIN.</p>
+    <label for="findNo">Receipt number</label>
+    <input id="findNo" placeholder="RC-KE-S-D01-261011-0001" autocapitalize="characters" autocomplete="off" spellcheck="false">
+    <label for="findPin">Supervisor PIN</label>
+    <input id="findPin" type="password" inputmode="numeric" autocomplete="off">
+    <button class="ghost" id="findGo" style="margin-top:12px">Find receipt</button>
+    <div id="findMsg" class="msg" hidden></div>
+  </div>
+  <div class="card">
+    <h2>Supervisor: sales team</h2>
+    <p class="hint" style="margin-top:0">Add a sales person, correct a name, or switch someone off. Changes reach every phone within minutes. Needs signal and the supervisor PIN.</p>
+    <label for="teamPin">Supervisor PIN</label>
+    <input id="teamPin" type="password" inputmode="numeric" autocomplete="off">
+    <button class="ghost" id="teamLoad" style="margin-top:12px">Open sales team</button>
+    <div id="teamList"></div>
+    <div id="teamAdd" hidden>
+      <h2 style="margin-top:16px">Add a sales person</h2>
+      <div class="row">
+        <div><label for="newAgentName">Full name</label><input id="newAgentName" autocomplete="off"></div>
+        <div><label for="newAgentRole">Role</label>
+          <select id="newAgentRole"><option>Field Sales</option><option>Telesales</option><option>Technician</option></select></div>
+      </div>
+      <label for="newAgentPhone">Phone <span class="opt">(optional)</span></label>
+      <input id="newAgentPhone" type="tel" inputmode="tel" autocomplete="off">
+      <button class="go" id="teamAddGo" style="margin-top:12px">Add</button>
+    </div>
+    <div id="teamMsg" class="msg" hidden></div>
+  </div>
+  <div class="card">
+    <h2>Office link</h2>
+    <p class="hint" id="linkInfo" style="margin-top:0"></p>
+    <button class="ghost" id="linkTest">Test office link now</button>
+    <div id="linkMsg" class="msg" hidden></div>
+  </div>
+  <button class="ghost" id="csvBtn" style="margin-bottom:10px">Export backup file (CSV)</button>
+  <button class="go" id="histBack">Back to new receipt</button>
+</div>
+
+<div class="noprint">
+  <button class="ghost" id="syncBtn" style="margin-top:12px" hidden>Send waiting receipts now</button>
+  <button class="ghost" id="histBtn" style="margin-top:10px">Receipts on this device</button>
+  <div class="pend" id="pend"></div>
+</div>
+</div>
+
+<script>
+/* On-screen error reporter: if anything fails on a phone (e.g. an iPhone-only problem), a red
+   bar shows the message and line number so it can be screenshotted, instead of a button that
+   silently does nothing. */
+(function () {
+  function bar(msg) {
+    try {
+      var d = document.getElementById('ucErr');
+      if (!d) { d = document.createElement('div'); d.id = 'ucErr';
+        d.style.cssText = 'position:fixed;left:8px;right:8px;bottom:calc(8px + env(safe-area-inset-bottom));z-index:9999;background:#b91c1c;color:#fff;font:13px/1.4 -apple-system,sans-serif;padding:10px 12px;border-radius:10px;box-shadow:0 4px 16px rgba(0,0,0,.25)';
+        d.onclick = function () { d.remove(); }; document.body.appendChild(d); }
+      d.textContent = 'App error (tap to close, screenshot for the office): ' + msg;
+    } catch (e) {}
+  }
+  window.addEventListener('error', function (e) {
+    if (e && e.filename && /script\.google|googleusercontent/.test(e.filename)) return;   // office replies, handled elsewhere
+    bar((e && e.message || 'unknown') + (e && e.lineno ? ' (line ' + e.lineno + ')' : ''));
+  });
+  window.addEventListener('unhandledrejection', function (e) { bar('promise: ' + (e && e.reason && e.reason.message || e && e.reason || 'unknown')); });
+  window.ucShowError = bar;
+})();
+/* ══════════════════════════════════════════════════════════════════════════
+   ULTRA CLEAR — RECEIPT  ·  v1.9.3  ·  15 Nov 2026
+
+   NEW IN v1.9: prices locked to the SKU master (UC_MASTER_SKU_v9.1); Order Ref and
+   'Paid from' phone on every receipt; supervisor can add / rename / switch off sales
+   people (Receipts on this device → Supervisor: sales team). Needs the v1.9 add-on.
+
+   WHAT THIS FILE TALKS TO (one Apps Script deployment, three message types):
+     formType=catalog    → SKUs, colours and prices from the Products sheet (cached for offline)
+     formType=reversal   → voids or refunds a receipt (online only, needs the supervisor PIN)
+     formType=codeCheck  → asks the Promo_Codes sheet whether a code is valid
+     formType=sale       → the EXISTING Lead Engine sale log (attribution + commission)
+     formType=roster / agentList / agentSave → the sales team (Agents tab)
+     formType=receipt    → Receipts tab + Code_Redemptions tab (needs the
+                           UltraClear_Codes_AddOn.gs pasted into the Lead Engine)
+
+   EDIT ONLY THE BLOCK BELOW.
+   ══════════════════════════════════════════════════════════════════════════ */
+/* The Lead Engine's own web app (its Apps Script project holds the lead code AND Codes_AddOn).
+   Changed 7 Nov 2026 from …irYshwtCFtW, whose project could not be found. */
+const UC_LEADS_URL = 'https://script.google.com/macros/s/AKfycbzE_qOlCSr4kKrCEoBcl5r5gOrGpbDxgGdf8RN0gqlCS44AD2-4PsWhBmgzbBJqWvN1/exec';
+
+const UC_SOURCE = 'Sales App';                    // stamped on every receipt this app issues; the companion app sends 'Companion App'
+
+const UC_APP_URL = 'www.ucfilters.com/app';      // ← CONFIRM: where customers sign up for the companion app
+
+/* YOUR LOGO. The app tries these in order and uses the first that loads.
+   Most reliable: put a copy of the logo, named logo.png, in the SAME folder as
+   this page — it then also works offline and appears inside the PDF.
+   If none loads, the receipt falls back to the "Ultra Clear" wordmark. */
+const UC_LOGOS = ['logo.png', 'https://ucfilters.com/wp-content/uploads/2026/03/Ultra-Clear-Primary-Logo.png'];   // the Primary logo
+
+/* Returns policy as given by Jay, 06 Oct 2026. The time limits themselves are
+   enforced by the server (UC_REFUND_HOURS / UC_CREDIT_HOURS in the add-on). */
+const UC_POLICY = [
+  'Change of mind: full refund within 24 hours of delivery.',
+  '24 to 72 hours after delivery: store credit, valid for 6 months. Any unused balance carries forward.',
+  'After 72 hours: no refund or store credit.',
+  'Faulty or damaged goods: report within 48 hours of delivery and the item is replaced.',
+  'Returns need this receipt number and the phone number used at purchase.',
+];
+/* on-screen hints only; the server decides. Return clocks run from DELIVERY, void from ISSUE. */
+const UC_VOID_HOURS = 8, UC_REFUND_HOURS = 24, UC_FAULTY_HOURS = 48, UC_CREDIT_HOURS = 72;
+const UC_ISO2 = { Kenya: 'KE', Tanzania: 'TZ', Rwanda: 'RW', Malawi: 'MW', Uganda: 'UG' };
+
+const UC_FOREST = 'Thank you for supporting Hydrate Future Forest — 3% of this purchase goes toward it.';
+
+/* The Lead Engine has no sales handler: a 'sale' message only ends up as a rejected
+   lead in Raw_Intake. The Receipts tab (with its Agent column) is the sales record,
+   so the extra message is off. Turn on only once the Lead Engine can take sales. */
+const UC_SEND_SALE_LOG = false;
+
+/* M-Pesa channels. The paybill is I&M Bank's (542 542): its account-number field must hold
+   the company's I&M account number, so the order ref CANNOT be typed there. Set
+   refInAccount to true only if you move to a paybill of your own (or I&M confirms
+   ACCOUNT#REF works); the app then tells the customer to type the order ref as the account. */
+const UC_MPESA = { till: '568 0516', paybill: '542 542', refInAccount: false };
+
+/* Built-in sales team = the Agents tab of "Ultra Clear — Receipts & Inventory" on 7 Nov 2026.
+   Used until the phone has synced the live tab once. Same IDs as the sheet, so receipts
+   issued with this list match the office record exactly. */
+const UC_AGENTS = [
+  { id: 'FS-001', name: 'Derrick Muchiri Ndonga', role: 'Sales Management', canOwn: true },
+  { id: 'FS-002', name: 'Louis', role: 'Field Sales', canOwn: true },
+  { id: 'TS-001', name: 'Jerry Royce', role: 'Lead', canOwn: false },
+];
+
+/* SERVER SWITCH — automatic. Until the office script answers the sales-team request with a
+   real list (i.e. Codes_AddOn is installed and published), the app runs phone-only: receipts,
+   PDF, sharing and history all work, every receipt is kept as "Waiting", and nothing else is
+   sent (so a half-set-up server cannot file receipts as junk leads). The first good answer
+   switches sending on for good on this phone, and the waiting receipts send themselves.
+   'auto' = as above · 'on' = always send · 'off' = never send. */
+const UC_SERVER_MODE = 'auto';
+function serverReady() { return UC_SERVER_MODE === 'on' || (UC_SERVER_MODE === 'auto' && ls('ucServerOk') === '1'); }
+
+const UC_COUNTRIES = {              // dial code + currency per market
+  Kenya:    { dial: '254', cur: 'KES', sym: 'KSh' },
+  Tanzania: { dial: '255', cur: 'TZS', sym: 'TSh' },
+  Rwanda:   { dial: '250', cur: 'RWF', sym: 'RWF' },
+  Malawi:   { dial: '265', cur: 'MWK', sym: 'MK'  },
+  Uganda:   { dial: '256', cur: 'UGX', sym: 'USh' },
+};
+
+/* Built-in copy of the price list, used only until the phone has fetched the live
+   Products tab once (first ever open with no signal). Prices are the SKU master prices,
+   never the old catalogue. The live Products tab always wins once fetched. */
+const UC_CATALOG_SNAPSHOT = [   // SKU, product, colour, category, price KES (UC_MASTER_SKU_v9.1, 7 Nov 2026)
+  ["UC-EA-KCH-SHF-FAUCET-WH-25", "Sweet Home Faucet Filter", "White", "Home & Utility", 3599],
+  ["UC-EA-SHW-JAD-STAINLESS-SS-25", "J'adore Shower", "Stainless", "Skincare & Wellness", 5149],
+  ["UC-EA-KCH-CRT-SHF-WH-25", "Cartridge - Sweet Home Faucet", "White", "Home & Utility", 1299],
+  ["UC-EA-SHW-CHN-CERAMIC-WH-25", "Chanel Shower", "White", "Skincare & Wellness", 3849],
+  ["UC-EA-SHW-DRC-TRITAN-WH-25", "Derma Care Shower", "White", "Skincare & Wellness", 2949],
+  ["UC-EA-DSP-WDS-WIRELESS-WH-25", "Wireless Dispenser", "White", "Home & Utility", 3099],
+  ["UC-EA-BOT-FLX-GY-1000ML-25", "Flex", "Grey", "Bottles & On-the-Go", 1799],
+  ["UC-EA-BOT-FLX-PK-1000ML-25", "Flex", "Pink", "Bottles & On-the-Go", 1799],
+  ["UC-EA-BOT-GYM-GN-1200ML-25", "Gym Buddy", "Green", "Bottles & On-the-Go", 2999],
+  ["UC-EA-BOT-SVS-BL-25", "Survivor Straw", "Blue", "Bottles & On-the-Go", 1299],
+  ["UC-EA-BOT-GYM-BK-1200ML-25", "Gym Buddy", "Black", "Bottles & On-the-Go", 2999],
+  ["UC-EA-BOT-TRG-GY-750ML-25", "Truva Go", "Grey", "Bottles & On-the-Go", 2949],
+  ["UC-EA-BOT-TRG-PK-750ML-25", "Truva Go", "Pink", "Bottles & On-the-Go", 2949],
+  ["UC-EA-BOT-TRG-BL-750ML-25", "Truva Go", "Blue", "Bottles & On-the-Go", 2949],
+  ["UC-EA-BOT-HYF-PK-750ML-25", "Hydra Flux", "Pink", "Bottles & On-the-Go", 3599],
+  ["UC-EA-BOT-VDR-BK-500ML-25", "Viva Drop", "Black", "Bottles & On-the-Go", 2199],
+  ["UC-EA-SHW-PRD-FIXED-WH-25", "Pure Drop Shower", "White", "Skincare & Wellness", 2299],
+  ["UC-EA-BOT-HYF-BL-750ML-25", "Hydra Flux", "Blue", "Bottles & On-the-Go", 3599],
+  ["UC-EA-BOT-HYF-LTD-DG-750ML-25", "Hydra Flux", "Dark Grey / Black", "Bottles & On-the-Go", 3599],
+  ["UC-EA-BOT-HYF-GY-750ML-25", "Hydra Flux", "Grey", "Bottles & On-the-Go", 3599],
+  ["UC-EA-BOT-VDR-GN-500ML-25", "Viva Drop", "Green", "Bottles & On-the-Go", 2199],
+  ["UC-EA-BOT-SVS-OR-25", "Survivor Straw", "Orange", "Bottles & On-the-Go", 1299],
+  ["UC-EA-FAC-DFX-FACIAL-WH-25", "Derma Flux Facial Filter", "White", "Skincare & Wellness", 7699],
+  ["UC-EA-BOT-CRT-FCA-WH-25", "Cartridge - Squeeze / Bottle Ahlstrom", "White", "Bottles & On-the-Go", 999],
+  ["UC-EA-DSP-CRT-WDS-WH-25", "Cartridge - Dispenser / Pump", "White", "Home & Utility", 1799],
+  ["UC-EA-SHW-CRT-UNI-WH-25", "Universal Shower Cartridge", "White", "Skincare & Wellness", 1649],
+  ["UC-EA-BOT-CRT-TRI-WH-25", "Tritan Bottle Replacement Cartridge", "White", "Bottles & On-the-Go", 999],
+  ["UC-EA-BOT-SHL-GY-25", "Straw Shell (no filter)", "Grey", "Bottles & On-the-Go", 499],
+  ["UC-EA-BOT-SHL-BL-25", "Straw Shell (no filter)", "Blue", "Bottles & On-the-Go", 499],
+  ["UC-EA-BOT-SHL-PK-25", "Straw Shell (no filter)", "Pink", "Bottles & On-the-Go", 499],
+  ["UC-EA-BOT-TIM-BL-350ML-25", "Timbo", "Blue", "Bottles & On-the-Go", 1299],
+  ["UC-EA-BOT-BRZ-WH-600ML-25", "Breeze", "White", "Bottles & On-the-Go", 1549],
+  ["UC-EA-BOT-CRT-SVS-WH-25", "Cartridge - Survivor Straw", "White", "Bottles & On-the-Go", 510],
+  ["UC-EA-FAC-CRT-DFO-WH-25", "Cartridge - Derma Flux Facial", "White", "Skincare & Wellness", 1799],
+  ["UC-EA-ROS-PHR-TANK-WH-25", "Pure Home 5-stage RO (tank)", "White", "Home & Utility", 20499],
+  ["UC-EA-ROS-URO-TANKLESS-WH-25", "Ultra Pure 5-stage RO (tankless)", "White", "Home & Utility", 21799],
+  ["UC-EA-ROS-PBL-TRANS-CL-25", "Pure Blue 6-stage RO", "Clear", "Home & Utility", 26049],
+  ["UC-EA-ROS-UPS-STEEL-SS-25", "Ultra Pure 7-stage RO (steel stand)", "Stainless", "Home & Utility", 31249],
+  ["UC-EA-CTF-PSH-TOP-WH-25", "Pure Shield 3-stage countertop", "White", "Home & Utility", 12149],
+  ["UC-EA-USF-AQD-UNDER-WH-25", "Aqua Drop 3-stage undersink", "White", "Home & Utility", 12899]
+];
+const UC_COLORS = ['—','Black','White','Blue','Grey','Silver','Green','Pink','Red','Clear','Other'];
+/* ─── nothing below needs editing ──────────────────────────────────────── */
+
+var $ = function (id) { return document.getElementById(id); };
+var gv = function (id) { return String(($(id) || {}).value || '').trim(); };
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+  return ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]; }); }
+function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) {} return null; }
+function p2(x) { return (x < 10 ? '0' : '') + x; }
+function mkt() { return UC_COUNTRIES[gv('country')] || UC_COUNTRIES.Kenya; }
+function money(n, sym) { return (sym || mkt().sym) + ' ' + Math.round(Number(n) || 0).toLocaleString('en-KE'); }
+function num(s) { return Number(String(s).replace(/[^\d.]/g, '')) || 0; }
+function intlPhone(raw, dial) {
+  var d = String(raw).replace(/\D/g, '');
+  if (!d) return '';
+  if (String(raw).trim().charAt(0) === '+') return d;
+  if (d.indexOf(dial) === 0 && d.length > 10) return d;
+  return dial + d.replace(/^0+/, '');
+}
+function say(id, kind, html) { var el = $(id); el.hidden = false; el.className = 'msg ' + kind + (id === 'sendMsg' ? ' noprint' : ''); el.innerHTML = html; }
+
+/* ── ucSend: JSONP GET, same contract as Sale Capture ──────────────────── */
+function ucSend(url, data, cb, opts) {
+  opts = opts || {};
+  if (!serverReady() && !(UC_SERVER_MODE === 'auto' && (data.formType === 'roster' || data.formType === 'ping')))
+    return setTimeout(function () { cb({ status: 'error', reason: 'paused' }); }, 0);
+  if (!url || url === 'YOUR_APPS_SCRIPT_WEB_APP_URL_HERE') return cb({ status: 'error', reason: 'unconfigured' });
+  var name = 'ucCb' + Date.now() + Math.floor(Math.random() * 1000);
+  var tag = document.createElement('script'), done = false, settleTimer = null;
+  function cleanup() {
+    clearTimeout(timer); clearTimeout(settleTimer);
+    window.removeEventListener('error', onWinError, true);
+    try { delete window[name]; } catch (e) { window[name] = undefined; }
+    if (tag.parentNode) tag.parentNode.removeChild(tag);
+  }
+  function finish(res) { if (done) return; done = true; cleanup(); cb(res); }
+  function onWinError(e) {
+    var f = (e && e.filename) || '';
+    if (!done && (f.indexOf('script.google') !== -1 || f.indexOf('googleusercontent') !== -1)) settle('stale');
+  }
+  function settle(reason) {
+    if (done || settleTimer) return;
+    settleTimer = setTimeout(function () { finish({ status: 'error', reason: reason }); }, 300);
+  }
+  window.addEventListener('error', onWinError, true);
+  window[name] = function (res) { finish(res || {}); };
+  tag.onload = function () { settle('stale'); };
+  tag.onerror = function () { finish({ status: 'error', reason: 'network' }); };
+  var qs = Object.keys(data).map(function (k) {
+    var val = data[k] == null ? '' : String(data[k]);
+    if (opts.maxField && val.length > opts.maxField) val = val.slice(0, opts.maxField) + '…';
+    return encodeURIComponent(k) + '=' + encodeURIComponent(val);
+  }).join('&');
+  var timer = setTimeout(function () { finish({ status: 'error', reason: 'timeout' }); }, opts.timeout || 20000);
+  tag.src = url + '?callback=' + name + '&' + qs;
+  document.head.appendChild(tag);
+}
+
+/* ── the device's own ledger ───────────────────────────────────────────────
+   Every receipt is written HERE FIRST, before anything is sent. The office
+   sheet is the backup and the shared record; this is what lets the app issue,
+   reopen and re-share receipts with no signal at all.
+   Each record: { r: <the receipt>, sale: pending|ok|rejected, rec: pending|ok|rejected } */
+var HKEY = 'ucReceiptStore';
+/* Only well-formed records are used; an unreadable one (e.g. left by an early version) is skipped
+   rather than breaking the history list, sending and the CSV backup for every other receipt. */
+function store() {
+  var a; try { a = JSON.parse(ls(HKEY) || '[]'); } catch (e) { a = []; }
+  if (!Array.isArray(a)) return [];
+  return a.filter(function (x) { return x && x.r && typeof x.r === 'object' && x.r.receiptNo && Array.isArray(x.r.items); });
+}
+function isPending(x) { return x.sale === 'pending' || x.rec === 'pending'; }
+function storeSave(a) {
+  var done = a.filter(function (x) { return !isPending(x); });        // never trim one that has not reached the office
+  if (done.length > 400) { var drop = done.slice(0, done.length - 400); a = a.filter(function (x) { return drop.indexOf(x) === -1; }); }
+  try { localStorage.setItem(HKEY, JSON.stringify(a)); } catch (e) { return false; }
+  badge(); return true;
+}
+function badge() {
+  var a = store(), n = a.filter(isPending).length;
+  $('pend').textContent = n ? n + ' receipt' + (n === 1 ? '' : 's') + ' waiting to reach the office' : '';
+  $('syncBtn').hidden = !n;
+  $('histBtn').textContent = 'Receipts on this device (' + a.length + ')';
+}
+function itemsLine(r) {
+  return r.items.map(function (i) { return i.qty + ' x ' + i.product + (i.color ? ' (' + i.color + ')' : '')
+    + ' @ ' + Math.round(i.price); }).join('; ');
+}
+/* Two messages per receipt, both idempotent on the receipt number, so a retry
+   can never double-count: the sale → the Lead Engine you already run; the
+   receipt + its lines + the code redemption → the codes add-on. */
+function payloads(r) {
+  var name = r.first + ' ' + r.last, inv = r.invoiceNo || r.receiptNo;
+  var clean = function (v) { return String(v == null ? '' : v).replace(/[|~]/g, ' '); };
+  return {
+    sale: { formType: 'sale', invoiceNo: inv, invoiceDate: r.isoDate, customer: name, phone: r.phone, leadId: '',
+      amount: r.net, products: itemsLine(r), agent: r.agentId, paymentStatus: 'Paid', enteredBy: r.agentId, country: r.country,
+      notes: 'Receipt ' + r.receiptNo + ' · ' + UC_SOURCE + ' · ' + r.method + (r.ref ? ' ' + r.ref : '') + ' · ' + r.location
+        + (r.code ? ' · code ' + r.code + ' -' + r.discount : '') },
+    rec: { formType: 'receipt', source: UC_SOURCE, receiptNo: r.receiptNo, invoiceNo: inv, date: r.isoDate, time: r.time,
+      timestamp: r.ts, firstName: r.first, lastName: r.last, phone: r.phone, email: r.email, country: r.country,
+      location: r.location, items: itemsLine(r), gross: r.gross, code: r.code, discount: r.discount, net: r.net,
+      currency: r.cur, paymentMethod: r.method, paymentRef: r.ref, agent: r.agentId, agentName: r.agentName || agentName(r.agentId), deliveryDate: r.deliveryDate || '',
+      orderRef: r.orderRef || orderRefOf(r.receiptNo), payerPhone: r.payerPhone || '', mpesaChannel: r.channel || '',
+      /* one line per product, machine-readable: sku|product|colour|qty|unit price — this is what stock reads */
+      lines: r.items.map(function (i) { return [i.sku || '', i.product, i.color, i.qty, i.price].map(clean).join('|'); }).join('~') }
+  };
+}
+function sendRecord(no, cb) {
+  var x = store().filter(function (y) { return y.r.receiptNo === no; })[0];
+  if (!x || !isPending(x)) { if (cb) cb(x); return; }
+  var p = payloads(x.r), todo = ['sale', 'rec'].filter(function (k) { return x[k] === 'pending'; }), left = todo.length;
+  todo.forEach(function (k) {
+    ucSend(UC_LEADS_URL, p[k], function (res) {
+      /* a reply only counts if it is the add-on's reply: the receipt handler always
+         returns the receipt number. A plain "ok" without it came from the lead code,
+         i.e. the published version predates the add-on, so keep it and try later. */
+      if (res && res.status === 'ok' && k === 'rec' && !res.receiptNo && !res.duplicate) {
+        x[k + 'Note'] = 'The office server is not running the receipts add-on yet (publish a New version). Kept on this device; it will resend.';
+      } else if (res && res.status === 'ok') {
+        var a = res.attribution || {};
+        x[k] = 'ok';
+        x[k + 'Note'] = res.duplicate ? 'Already on record — not counted twice.' : (a['Closing Agent'] ? 'Credited to ' + a['Closing Agent'] + '.' : '');
+        if (res.flags) x.flags = String(res.flags);
+      } else if (res && res.status === 'error' && res.message) {
+        x[k] = 'rejected'; x[k + 'Note'] = res.message;        // the server said no: retrying will not change that
+      } else {
+        x[k + 'Note'] = (res && res.reason) === 'stale' ? 'The server is running an out-of-date script; the office needs to redeploy.'
+          : (res && res.reason) === 'unconfigured' ? 'This copy has no server address.'
+          : (res && res.reason) === 'paused' ? 'Sending to the office is paused until the office update; this receipt is safe on the phone and will send itself after it.' : 'No connection.';
+      }
+      if (--left) return;
+      var b = store();                                          // re-read: another receipt may have been saved meanwhile
+      for (var i = 0; i < b.length; i++) if (b[i].r.receiptNo === no) b[i] = x;
+      storeSave(b); if (cb) cb(x);
+    }, { maxField: 1500 });
+  });
+}
+function syncAll(cb) {
+  var list = store().filter(isPending).map(function (x) { return x.r.receiptNo; }), i = 0;
+  (function next() {
+    if (i >= list.length) { if (cb) cb(list.length, store().filter(isPending).length); return; }
+    sendRecord(list[i++], next);
+  })();
+}
+function statusOf(x) {
+  if (x.reversed) return { kind: 'warn', chip: x.reversed, cls: 'b', html: '<b>' + esc(x.reversed) + '.</b> See the '
+    + (x.reversed === 'Voided' ? 'void' : 'refund') + ' note in "Receipts on this device".' };
+  if (isPending(x)) return { kind: 'warn', chip: 'Waiting', cls: 'w', html: '<b>Saved on this device — not at the office yet.</b> '
+    + esc(x.recNote || x.saleNote || '') + ' You can share the receipt now; it sends itself when there is signal.' };
+  if (x.sale === 'ok' && x.rec === 'ok' && !x.flags) return { kind: 'ok', chip: 'Sent', cls: '',
+    html: '<b>Recorded at the office.</b> ' + esc(x.saleNote || '') };
+  return { kind: x.flags && x.sale === 'ok' && x.rec === 'ok' ? 'warn' : 'bad', chip: 'Check', cls: 'b',
+    html: (x.sale === 'ok' ? '<b>Sale logged.</b> ' + esc(x.saleNote || '') : '<b>Sale not logged:</b> ' + esc(x.saleNote || ''))
+      + '<br>' + (x.rec === 'ok' ? (x.flags ? '<b>Held for review:</b> ' + esc(x.flags) : 'Receipt logged.')
+                                 : '<b>Receipt not logged:</b> ' + esc(x.recNote || '')) };
+}
+
+/* ── build the form ────────────────────────────────────────────────────── */
+/* The catalogue (SKU, colour, price per currency) comes from the Products sheet
+   and is cached, so prices fill themselves in offline too. Until the first
+   successful fetch the built-in product list is used and prices are typed. */
+var CAT = null;
+var SNAP = UC_CATALOG_SNAPSHOT.map(function (a) {
+  return { sku: a[0], product: a[1], colour: a[2], category: a[3], prices: { KES: a[4] }, onHand: null }; });
+function catalog() {
+  if (!CAT) { try { CAT = JSON.parse(ls('ucCatalog') || 'null'); } catch (e) {} }
+  /* a phone still holding a pre-v9.1 list (old UC-HOU-… keys) uses the built-in copy until it refreshes */
+  if (CAT && CAT.length && !CAT.some(function (x) { return /^UC-EA-/.test(x.sku || ''); })) CAT = null;
+  return (CAT && CAT.length) ? CAT : SNAP;
+}
+function productOptions() {
+  var groups = {}, c = catalog();
+  c.forEach(function (x) { var g = x.category || 'Products'; groups[g] = groups[g] || [];
+    if (groups[g].indexOf(x.product) === -1) groups[g].push(x.product); });
+  return '<option value="">Select product</option>' + Object.keys(groups).map(function (g) {
+    return '<optgroup label="' + esc(g) + '">' + groups[g].map(function (p) {
+      return '<option>' + esc(p) + '</option>'; }).join('') + '</optgroup>'; }).join('');
+}
+function variants(product) { return (catalog() || []).filter(function (x) { return x.product === product; }); }
+function fillColours(el) {
+  var cols = variants(el.querySelector('.i-prod').value).map(function (x) { return x.colour; }).filter(Boolean);
+  var sel = el.querySelector('.i-col'), keep = sel.value;
+  sel.innerHTML = (cols.length ? cols : UC_COLORS).map(function (c) { return '<option>' + esc(c) + '</option>'; }).join('');
+  if (keep && [].some.call(sel.options, function (o) { return o.value === keep; })) sel.value = keep;
+}
+function applyCatalog(el) {
+  var vs = variants(el.querySelector('.i-prod').value), col = el.querySelector('.i-col').value;
+  var v = vs.filter(function (x) { return x.colour === col; })[0] || vs.filter(function (x) { return !x.colour; })[0] || (vs.length === 1 ? vs[0] : null);
+  var price = el.querySelector('.i-price');
+  el.dataset.sku = v ? v.sku : '';
+  el.dataset.onhand = v && v.onHand != null ? v.onHand : '';
+  paintStock(el);
+  var cp = v && v.prices ? Number(v.prices[mkt().cur]) || 0 : 0;
+  /* The SKU master price is the price. Where one exists the field is locked: a discount
+     goes through a code, so it is checked and recorded, never typed into the price. Only
+     a product with no price for this currency (e.g. a new market) can be priced by hand. */
+  if (cp > 0) { price.value = cp; price.readOnly = true; el.dataset.auto = '1'; price.title = 'Price from the SKU master'; }
+  else { if (el.dataset.auto === '1') price.value = ''; price.readOnly = false; el.dataset.auto = ''; price.title = ''; }
+}
+/* Stock on hand as of the last time this phone fetched the catalogue. A warning, not a block:
+   the count can be out of date offline, and the office reconciles any oversell. */
+function paintStock(el) {
+  var p = el.querySelector('.i-stock'); if (!p) return;
+  var oh = el.dataset.onhand, q = Math.max(1, Math.round(num(el.querySelector('.i-qty').value)) || 1);
+  if (oh === '' || oh == null) { p.textContent = ''; return; }
+  oh = Number(oh);
+  p.innerHTML = q > oh ? '<span style="color:var(--bad);font-weight:700">Only ' + oh + ' in stock</span> (as of last sync) — check before selling.'
+                       : oh + ' in stock (as of last sync).';
+}
+function addItem() {
+  var d = document.createElement('div');
+  d.className = 'item';
+  d.innerHTML = '<button type="button" class="x" aria-label="Remove product">Remove</button>'
+    + '<label>Product <span class="req">*</span></label><select class="i-prod">' + productOptions() + '</select>'
+    + '<div class="row"><div><label>Colour</label><select class="i-col"></select></div>'
+    + '<div><label>Qty</label><input class="i-qty" inputmode="numeric" value="1"></div>'
+    + '<div><label>Unit price <span class="req">*</span></label><input class="i-price" inputmode="decimal" placeholder="0"></div></div>'
+    + '<p class="hint i-stock" style="margin:6px 0 0"></p>';
+  d.querySelector('.x').onclick = function () {
+    if (document.querySelectorAll('.item').length > 1) { d.remove(); onGrossChange(); }
+  };
+  d.querySelector('.i-prod').onchange = function () { fillColours(d); applyCatalog(d); };
+  d.querySelector('.i-col').onchange = function () { applyCatalog(d); };
+  d.querySelector('.i-price').oninput = function () { d.dataset.auto = ''; };
+  d.querySelector('.i-qty').oninput = function () { paintStock(d); };
+  $('items').appendChild(d); fillColours(d);
+}
+function readItems() {
+  return [].map.call(document.querySelectorAll('.item'), function (el) {
+    var col = el.querySelector('.i-col').value;
+    return { el: el, sku: el.dataset.sku || '', product: el.querySelector('.i-prod').value, color: col === '—' ? '' : col,
+             qty: Math.max(1, Math.round(num(el.querySelector('.i-qty').value)) || 1),
+             price: num(el.querySelector('.i-price').value) };
+  });
+}
+
+/* ── totals + code ─────────────────────────────────────────────────────── */
+var applied = null;   // { code, type, discountType, value, maxDiscount, minSpend, label }
+function gross() { return readItems().reduce(function (s, i) { return s + i.qty * i.price; }, 0); }
+function discountFor(g) {
+  if (!applied || g <= 0) return 0;
+  if (applied.minSpend && g < applied.minSpend) return 0;
+  var d = applied.discountType === 'PCT' ? g * applied.value / 100 : applied.value;
+  if (applied.maxDiscount) d = Math.min(d, applied.maxDiscount);
+  return Math.round(Math.min(d, g));
+}
+function paintTotals() {
+  var g = gross(), d = discountFor(g);
+  $('tSub').textContent = money(g);
+  $('tDiscRow').hidden = !applied;
+  if (applied) { $('tDiscLbl').textContent = 'Discount (' + applied.code + ')'; $('tDisc').textContent = '− ' + money(d); }
+  $('tNet').textContent = money(g - d);
+}
+function onGrossChange() {
+  if (applied && applied.minSpend && gross() < applied.minSpend) {
+    say('codeMsg', 'warn', '<b>' + esc(applied.code) + '</b> needs a minimum spend of '
+      + money(applied.minSpend) + '. No discount until the subtotal reaches it.');
+  }
+  paintTotals();
+}
+function clearCode(silent) {
+  applied = null; $('code').readOnly = false; $('applyCode').textContent = 'Check';
+  if (!silent) { $('code').value = ''; $('codeMsg').hidden = true; }
+  paintTotals();
+}
+function checkCode() {
+  if (applied) { clearCode(); return; }
+  var code = gv('code').toUpperCase().replace(/\s+/g, '');
+  if (!code) { say('codeMsg', 'bad', 'Type a code first.'); return; }
+  if (!gv('phone')) { say('codeMsg', 'bad', 'Enter the customer\'s phone first — codes are checked against who is using them.'); return; }
+  if (gross() <= 0) { say('codeMsg', 'bad', 'Add the product and price first, so the discount can be worked out.'); return; }
+  var btn = $('applyCode'); btn.disabled = true; btn.textContent = '…';
+  say('codeMsg', 'warn', 'Checking ' + esc(code) + '…');
+  ucSend(UC_LEADS_URL, { formType: 'codeCheck', code: code, country: gv('country'), currency: mkt().cur,
+      phone: intlPhone(gv('phone'), mkt().dial), amount: gross() }, function (res) {
+    btn.disabled = false; btn.textContent = 'Check';
+    if (res && res.status === 'ok' && res.valid === true) {
+      applied = { code: res.code || code, type: res.type || 'PROMO',
+        discountType: String(res.discountType || 'PCT').toUpperCase(), value: Number(res.value) || 0,
+        maxDiscount: Number(res.maxDiscount) || 0, minSpend: Number(res.minSpend) || 0 };
+      $('code').value = applied.code; $('code').readOnly = true; btn.textContent = 'Remove';
+      var what = applied.type === 'CREDIT' ? 'balance ' + money(applied.value) + ' (any unused amount carries forward)'
+        : applied.discountType === 'PCT' ? applied.value + '% off' : money(applied.value) + ' off';
+      say('codeMsg', 'ok', '<b>' + esc(applied.code) + ' is valid</b> — ' + esc(applied.type.toLowerCase()) + ' code, ' + what
+        + (res.owner ? '<br>' + (applied.type === 'CREDIT' ? 'Belongs to' : 'Referred by') + ' <b>' + esc(res.owner) + '</b>.' : '')
+        + (res.usesLeft != null && res.usesLeft !== '' ? '<br>' + esc(res.usesLeft) + ' use(s) left.' : '')
+        + (res.validTo ? ' Expires ' + esc(res.validTo) + '.' : ''));
+      paintTotals(); return;
+    }
+    if (res && res.status === 'ok' && res.valid === false) {
+      say('codeMsg', 'bad', '<b>Not accepted.</b> ' + esc(res.message || 'This code is not valid.')); return;
+    }
+    if (res && res.status === 'error' && res.message) {
+      say('codeMsg', 'bad', '<b>The server could not check codes.</b> ' + esc(res.message)
+        + '<br>If this keeps happening the codes add-on has not been installed in the Lead Engine yet.'); return;
+    }
+    /* Deliberate: no discount without a live check. An unverifiable code is the
+       cheapest way to leak margin, so offline means full price or wait for signal. */
+    say('codeMsg', 'warn', '<b>Could not verify — no discount applied.</b> '
+      + (res && res.reason === 'stale' ? 'The server is running an out-of-date script; ask the office to redeploy.'
+                                       : res && res.reason === 'paused' ? 'Code checking starts after the office update (tomorrow). Sell at full price for now.'
+                                       : 'No connection. Codes can only be checked online.'));
+  }, { timeout: 15000 });
+}
+
+/* ── payment method ────────────────────────────────────────────────────── */
+var payMethod = '';
+$('method').addEventListener('click', function (e) {
+  var b = e.target.closest('button'); if (!b) return;
+  payMethod = b.dataset.v;
+  [].forEach.call(this.children, function (x) { x.setAttribute('aria-pressed', String(x === b)); });
+  $('refWrap').hidden = payMethod === 'Cash';
+  $('payerWrap').hidden = payMethod !== 'M-Pesa'; $('chWrap').hidden = payMethod !== 'M-Pesa';
+  $('refLabel').textContent = payMethod === 'M-Pesa' ? 'M-Pesa transaction code' : 'Bank reference';
+  $('payRef').placeholder = payMethod === 'M-Pesa' ? 'e.g. TJ42ABC9XY' : 'Slip / transfer reference';
+  paintOrderRef();
+});
+/* The order reference this receipt will carry. Shown before issuing so a customer paying
+   by paybill (or bank) can type it as the account number / narration. */
+function paintOrderRef() {
+  var r = orderRefOf(peekDocNo('RC', gv('country'), stamp()));
+  var pb = payMethod === 'M-Pesa' && gv('mpesaCh') === 'Paybill';
+  $('orderRefShow').innerHTML = !payMethod ? '' : pb && UC_MPESA.refInAccount
+    ? 'Order ref <b>' + esc(r) + '</b> — the customer types this as the paybill <b>account number</b>.'
+    : 'Order ref <b>' + esc(r) + '</b> — printed on the receipt.' + (pb ? ' Paybill ' + esc(UC_MPESA.paybill) + ': the account number is the company I&amp;M account, not this ref.' : '');
+}
+$('mpesaCh').onchange = paintOrderRef;
+
+/* ── roster ────────────────────────────────────────────────────────────── */
+/* The "Sold by" list is the Agents tab. It is re-read when the app opens, every 5 minutes,
+   when the rep comes back to the app and when signal returns, and kept on the phone so it
+   works offline. The built-in UC_AGENTS list is used only on a phone that has never synced. */
+function rosterList() {
+  var list = null; try { list = JSON.parse(ls('ucRoster') || 'null'); } catch (e) {}
+  return Array.isArray(list) ? list : UC_AGENTS;
+}
+function fillAgents(list) {
+  list = Array.isArray(list) ? list : rosterList();
+  var sel = $('agent'), keep = sel.value || ls('ucLastAgent') || '';
+  var sellers = list.filter(function (a) { return a.canOwn !== false; });
+  sel.innerHTML = '<option value="">— Select —</option>' + sellers
+    .map(function (a) { return '<option value="' + esc(a.id) + '">' + esc(a.name) + '</option>'; }).join('');
+  var still = sellers.some(function (a) { return a.id === keep; });
+  sel.value = still ? keep : '';
+  var at = ls('ucRosterAt'), t = at ? new Date(Number(at)) : null;
+  $('agentSync').innerHTML = !at ? (serverReady() ? 'Sales team not synced yet — built-in list. It updates the first time there is signal.'
+      : 'Sales team: built-in list from the Agents tab (7 Nov).')
+    : (sellers.length ? sellers.length + ' sales ' + (sellers.length === 1 ? 'person' : 'people') : '<b>No active sales people on the Agents tab.</b>')
+      + ' · synced ' + t.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' }) + ' ' + p2(t.getHours()) + ':' + p2(t.getMinutes())
+      + (keep && !still ? ' · <b>the last selected person is no longer on the list — choose again.</b>' : '');
+}
+
+/* ── clock ─────────────────────────────────────────────────────────────── */
+function stamp() {
+  var d = new Date();
+  return { iso: d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()),
+    date: d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
+    time: p2(d.getHours()) + ':' + p2(d.getMinutes()), ts: d.toISOString(),
+    compact: String(d.getFullYear()).slice(2) + p2(d.getMonth() + 1) + p2(d.getDate()) };
+}
+function tick() { var s = stamp(); $('dateShow').value = s.date; $('timeShow').value = s.time; }
+
+/* ── document numbers ──────────────────────────────────────────────────────
+   DOC-CC-H-DEV-YYMMDD-NNNN   e.g.  RC-KE-S-D03-261011-0007
+     DOC  RC receipt · RT return note (refund, store credit, replacement) · VD void note
+     CC   country · H  S = sales app · DEV  this device's code from the office (D01, D02…)
+     YYMMDD the day · NNNN this device's running number for that day
+   Made on the phone, so it works offline; unique because no two devices share a code.
+   Until a phone has reached the office once it uses a temporary code starting with T. */
+function deviceId() {
+  var d = ls('ucDeviceId');
+  if (!d) { d = 'T' + Math.random().toString(36).slice(2, 4).toUpperCase(); ls('ucDeviceId', d); }
+  return d;
+}
+function registerDevice() {
+  var d = ls('ucDeviceId');
+  if (d && d.charAt(0) === 'D') return;
+  ucSend(UC_LEADS_URL, { formType: 'registerDevice' }, function (res) {
+    if (res && res.status === 'ok' && res.deviceId) ls('ucDeviceId', res.deviceId);
+  }, { timeout: 15000 });
+}
+function newDocNo(doc, country, s, peek) {
+  var dev = deviceId(), key = 'ucSeq_' + dev + '_' + s.compact, n = Number(ls(key) || 0) + 1;
+  if (!peek) ls(key, String(n));
+  return [doc, UC_ISO2[country] || 'XX', 'S', dev, s.compact, ('000' + n).slice(-4)].join('-');
+}
+function peekDocNo(doc, country, s) { return newDocNo(doc, country, s, true); }
+/* RC-KE-S-D03-261107-0007 -> D032611070007 (same rule as ucOrderRef_ on the server) */
+function orderRefOf(no) { var a = String(no || '').split('-'); return a.length >= 6 ? a.slice(3).join('') : String(no || '').replace(/-/g, ''); }
+function tomorrowIso() { var d = new Date(Date.now() + 864e5); return d.getFullYear() + '-' + p2(d.getMonth() + 1) + '-' + p2(d.getDate()); }
+function niceDate(iso) {
+  var d = new Date(String(iso).slice(0, 10) + 'T12:00:00');
+  return isNaN(d) ? String(iso) : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+$('delivery').onchange = function () {
+  $('delDateWrap').hidden = this.value !== 'later';
+  if (this.value === 'later' && !$('delDate').value) $('delDate').value = tomorrowIso();
+};
+
+/* ── issue ─────────────────────────────────────────────────────────────── */
+var current = null;
+$('rf').addEventListener('submit', function (ev) {
+  ev.preventDefault();
+  var bad = [];
+  ['fname', 'lname', 'phone', 'country', 'location', 'agent'].forEach(function (id) {
+    var miss = !gv(id); $(id).style.borderColor = miss ? 'var(--bad)' : ''; if (miss) bad.push($(id));
+  });
+  var items = readItems();
+  items.forEach(function (i) {
+    var pe = i.el.querySelector('.i-prod'), pr = i.el.querySelector('.i-price');
+    pe.style.borderColor = i.product ? '' : 'var(--bad)'; if (!i.product) bad.push(pe);
+    pr.style.borderColor = i.price > 0 ? '' : 'var(--bad)'; if (!(i.price > 0)) bad.push(pr);
+  });
+  var later = gv('delivery') === 'later', badDel = later && (!gv('delDate') || gv('delDate') < stamp().iso);
+  $('delDate').style.borderColor = badDel ? 'var(--bad)' : '';
+  if (badDel) bad.push($('delDate'));
+  var needRef = payMethod && payMethod !== 'Cash' && !gv('payRef');
+  $('payRef').style.borderColor = needRef ? 'var(--bad)' : '';
+  if (needRef) bad.push($('payRef'));
+  if (bad.length || !payMethod) {
+    say('formMsg', 'bad', !payMethod && !bad.length ? '<b>Choose how the customer paid.</b>'
+      : '<b>Please complete the highlighted fields' + (!payMethod ? ' and choose a payment method' : '') + '.</b>');
+    if (bad[0]) bad[0].focus();
+    return;
+  }
+  $('formMsg').hidden = true;
+
+  var s = stamp(), m = mkt(), g = gross(), d = discountFor(g);
+  current = {
+    receiptNo: newDocNo('RC', gv('country'), s), invoiceNo: gv('invoiceNo'), date: s.date, isoDate: s.iso, time: s.time, ts: s.ts,
+    deliveryDate: later ? gv('delDate') : '', deliveredAt: later ? '' : s.ts,
+    first: gv('fname'), last: gv('lname'), phone: intlPhone(gv('phone'), m.dial), email: gv('email'),
+    country: gv('country'), location: gv('location'), cur: m.cur, sym: m.sym,
+    items: items.map(function (i) { return { sku: i.sku, product: i.product, color: i.color, qty: i.qty, price: i.price }; }),
+    gross: g, discount: d, net: g - d, code: applied && d > 0 ? applied.code : '', codeType: applied && d > 0 ? applied.type : '',
+    method: payMethod, ref: gv('payRef').toUpperCase(),
+    channel: payMethod === 'M-Pesa' ? gv('mpesaCh') : '',
+    payerPhone: payMethod === 'M-Pesa' ? (gv('payerPhone') ? intlPhone(gv('payerPhone'), m.dial) : intlPhone(gv('phone'), m.dial)) : '',
+    agentId: gv('agent'), agentName: agentName(gv('agent')) || $('agent').selectedOptions[0].textContent
+  };
+  current.orderRef = orderRefOf(current.receiptNo);
+  ls('ucLastAgent', current.agentId); ls('ucLastLocation', current.location); ls('ucLastCountry', current.country);
+  var a = store(); a.push({ r: current, sale: UC_SEND_SALE_LOG ? 'pending' : 'ok', rec: 'pending' });
+  var saved = storeSave(a);
+  openReceipt(current, saved ? { kind: 'warn', html: 'Saved on this device. Sending to the office…' }
+    : { kind: 'bad', html: '<b>This device could not save its own copy</b> (storage is full or blocked — Private Browsing does this). '
+        + 'Share the PDF now and keep it; trying to reach the office…' });
+  var no = current.receiptNo;
+  if (saved) sendRecord(no, function (x) { if (x && current && current.receiptNo === no) { var st = statusOf(x); say('sendMsg', st.kind, st.html); refreshRev(); } });
+  else {                                   // no local copy: one direct attempt, nothing to retry from
+    var p = payloads(current), ks = UC_SEND_SALE_LOG ? ['sale', 'rec'] : ['rec'], ok = 0, n = ks.length;
+    ks.forEach(function (k) { ucSend(UC_LEADS_URL, p[k], function (res) {
+      if (res && res.status === 'ok' && (k !== 'rec' || res.receiptNo || res.duplicate)) ok++;
+      if (!--n && current && current.receiptNo === no) say('sendMsg', ok === ks.length ? 'ok' : 'bad', ok === ks.length ? '<b>Recorded at the office.</b>'
+        : '<b>Not saved anywhere.</b> Share the PDF now, then re-enter this receipt when the device is fixed.');
+    }, { maxField: 1500 }); });
+  }
+});
+
+function show(view) {
+  ['formView', 'receiptView', 'histView'].forEach(function (v) { $(v).hidden = v !== view; });
+  window.scrollTo(0, 0);
+}
+function openReceipt(r, st) {
+  current = r; renderReceipt(r); $('pdfMsg').hidden = true;
+  say('sendMsg', st.kind, st.html); show('receiptView'); refreshRev();
+}
+/* Only a sale that has reached the office and is not already fully reversed can be voided or refunded. */
+function refreshRev() {
+  var x = current && !current.remote && store().filter(function (y) { return y.r.receiptNo === current.receiptNo; })[0];
+  var ok = current && !current.kind && (current.remote ? !/^(Voided|Refunded)$/.test(current.status || '')
+    : !!(x && x.rec === 'ok' && x.reversed !== 'Voided' && x.reversed !== 'Refunded'));
+  $('revOpen').hidden = !ok; $('revPanel').hidden = true;
+  $('delBtn').hidden = !(current && !current.kind && current.deliveryDate && !current.deliveredAt && (current.remote || (x && x.rec === 'ok')));
+}
+$('delBtn').onclick = function () {
+  var b = this, r = current; b.disabled = true;
+  ucSend(UC_LEADS_URL, { formType: 'delivered', receiptNo: r.receiptNo }, function (res) {
+    b.disabled = false;
+    if (!(res && res.status === 'ok')) {
+      say('sendMsg', 'bad', res && res.message ? esc(res.message) : '<b>No connection.</b> Confirming a delivery needs signal — try again when you have it.'); return;
+    }
+    r.deliveredAt = res.deliveredAt;
+    var a = store(); a.forEach(function (x) { if (x.r.receiptNo === r.receiptNo) x.r.deliveredAt = res.deliveredAt; }); storeSave(a);
+    renderReceipt(r); refreshRev();
+    say('sendMsg', 'ok', '<b>Delivery confirmed.</b> The return and replacement clocks start from now.');
+  }, { timeout: 20000 });
+};
+/* What the returns policy allows for a receipt of this age. A hint for the rep — the server makes the real decision. */
+function hoursOld(r) { var h = (Date.now() - new Date(r.ts).getTime()) / 3600000; return isNaN(h) ? 0 : Math.max(0, h); }
+/* return clocks start at delivery: confirmed, else end of the planned delivery day, else issue */
+function delivHours(r) {
+  var base = r.deliveredAt || (r.deliveryDate ? r.deliveryDate + 'T23:59:59+03:00' : r.ts);
+  var h = (Date.now() - new Date(base).getTime()) / 3600000;
+  return isNaN(h) ? 0 : Math.max(0, h);
+}
+function windowMode(r) {
+  var h = delivHours(r);
+  return h <= UC_REFUND_HOURS ? 'refund' : h <= UC_CREDIT_HOURS ? 'credit' : 'closed';
+}
+function agentName(id) {
+  var a = rosterList().filter(function (z) { return z.id === id; })[0];
+  return a ? a.name : (id || '—');
+}
+
+/* ── the receipt ───────────────────────────────────────────────────────── */
+/* One layout serves three documents: a receipt, a refund note and a void note. */
+function labels(r) {
+  var v = r.kind === 'Void', f = r.kind === 'Refund', rp = r.kind === 'Replacement', rev = v || f || rp, cr = !!r.creditCode;
+  return { rev: rev, doc: v ? 'Void note' : rp ? 'Replacement note' : cr ? 'Store credit note' : f ? 'Refund note' : 'Receipt',
+    total: rp ? 'Amount charged' : cr ? 'Store credit issued' : rev ? 'Total refunded' : 'Total paid',
+    by: rp ? 'Settled by' : cr ? 'Returned as' : rev ? 'Refunded by' : 'Paid by',
+    badge: v ? 'VOIDED' : rp ? 'REPLACED' : cr ? 'STORE CREDIT' : f ? 'REFUNDED' : 'PAID',
+    disc: rev ? 'Less discount given' : (r.codeType === 'CREDIT' ? 'Store credit · ' : 'Discount · ') + r.code,
+    closing: (rp ? 'Faulty or damaged item(s) from receipt ' + (r.original || '') + ' replaced at no charge.'
+                 : 'This note reverses ' + (v ? 'receipt ' : 'part or all of receipt ') + (r.original || '') + '.')
+      + (cr ? ' Your store credit code is ' + r.creditCode + '. Give this code and your phone number on any purchase. '
+            + 'Any unused balance carries forward' + (r.creditExpires ? ' until ' + niceDate(r.creditExpires) : '') + '.' : '')
+      + (r.creditBack ? ' ' + money(r.creditBack, r.sym) + ' has been put back on your store credit ' + r.creditBackCode + '.' : '') };
+}
+function deliveryText(r) {
+  if (r.kind) return '';
+  if (!r.deliveryDate) return 'Handed over';
+  return niceDate(r.deliveryDate) + (r.deliveredAt ? ' · delivered' : ' · to be delivered');
+}
+/* ── logo ──────────────────────────────────────────────────────────────── */
+var LOGO = null;                      // { src, jpg, w, h } — jpg is what goes inside the PDF
+try { LOGO = JSON.parse(ls('ucLogo') || 'null'); } catch (e) {}
+function loadLogo(i) {
+  i = i || 0; if (i >= UC_LOGOS.length) return;
+  var im = new Image();
+  im.onerror = function () { loadLogo(i + 1); };
+  im.onload = function () {
+    var L = { src: im.src, jpg: '', w: 0, h: 0 };
+    try {                             // flatten onto white and keep a copy, so it works offline and in the PDF
+      var k = Math.min(1, 240 / im.naturalHeight), cv = document.createElement('canvas');
+      cv.width = Math.round(im.naturalWidth * k); cv.height = Math.round(im.naturalHeight * k);
+      var g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, cv.width, cv.height); g.drawImage(im, 0, 0, cv.width, cv.height);
+      L.jpg = cv.toDataURL('image/jpeg', 0.92); L.w = cv.width; L.h = cv.height; L.src = L.jpg;
+      ls('ucLogo', JSON.stringify(L));
+    } catch (e) {}                    // a logo from another website can be shown but not copied into the PDF
+    LOGO = L; if (current) renderReceipt(current);
+  };
+  im.src = UC_LOGOS[i];
+}
+function brandHtml() {
+  return LOGO ? '<img class="logo" src="' + esc(LOGO.src) + '" alt="Ultra Clear">' : '<div class="brand">Ultra <span>Clear</span></div>';
+}
+function renderReceipt(r) {
+  var M = function (n) { return money(n, r.sym); }, lb = labels(r);
+  $('paper').innerHTML =
+    brandHtml()
+  + '<div class="tag">Ultra Clear Filtration Technologies Ltd. · Engineering Wellness, Drop by Drop</div>'
+  + '<div class="rno"><div><small>' + esc(lb.doc) + '</small><b>' + esc(r.receiptNo) + '</b></div>'
+  + '<div style="text-align:right"><small>' + esc(r.date) + '</small><b>' + esc(r.time) + '</b></div></div>'
+  + '<dl><dt>Customer</dt><dd>' + esc(r.first + ' ' + r.last) + '</dd>'
+  + '<dt>Phone</dt><dd>+' + esc(r.phone) + '</dd>'
+  + '<dt>Location</dt><dd>' + esc(r.location + ', ' + r.country) + '</dd>'
+  + (r.invoiceNo ? '<dt>Invoice</dt><dd>' + esc(r.invoiceNo) + '</dd>' : '')
+  + (r.original ? '<dt>Original receipt</dt><dd>' + esc(r.original) + '</dd>' : '')
+  + (deliveryText(r) ? '<dt>Delivery</dt><dd>' + esc(deliveryText(r)) + '</dd>' : '')
+  + '<dt>Sold by</dt><dd>' + esc(r.agentName || agentName(r.agentId)) + '</dd>'
+  + '<dt>Issued via</dt><dd>' + esc(UC_SOURCE) + '</dd>'
+  + (r.reason ? '<dt>Reason</dt><dd>' + esc(r.reason) + '</dd>' : '') + '</dl>'
+  + '<table><thead><tr><th>Product' + (lb.rev ? ' returned' : '') + '</th><th class="n">Qty</th><th class="n">Amount</th></tr></thead><tbody>'
+  + r.items.map(function (i) {
+      return '<tr><td>' + esc(i.product) + (i.color ? '<small>Colour: ' + esc(i.color) + '</small>' : '')
+        + (i.qty > 1 ? '<small>' + M(i.price) + ' each</small>' : '') + '</td><td class="n">' + i.qty
+        + '</td><td class="n">' + M(i.qty * i.price) + '</td></tr>'; }).join('')
+  + '</tbody></table>'
+  + '<div class="sum"><div class="tot"><span>Subtotal</span><span>' + M(r.gross) + '</span></div>'
+  + (r.discount ? '<div class="tot"><span class="disc">' + esc(lb.disc) + '</span><span class="disc">− ' + M(r.discount) + '</span></div>' : '')
+  + '<div class="tot big"><span>' + lb.total + '</span><span>' + M(r.net) + '</span></div></div>'
+  + '<dl style="margin-bottom:0"><dt>' + lb.by + '</dt><dd>' + esc(payLabel(r)) + '</dd>'
+  + (r.ref ? '<dt>' + (r.method === 'M-Pesa' ? 'M-Pesa code' : 'Reference') + '</dt><dd>' + esc(r.ref) + '</dd>' : '')
+  + (r.payerPhone ? '<dt>Paid from</dt><dd>+' + esc(r.payerPhone) + '</dd>' : '')
+  + (!r.kind && (r.orderRef || r.receiptNo) ? '<dt>Order ref</dt><dd>' + esc(r.orderRef || orderRefOf(r.receiptNo)) + '</dd>' : '')
+  + (r.creditCode ? '<dt>Credit code</dt><dd>' + esc(r.creditCode) + '</dd>' : '') + '</dl>'
+  + '<span class="paid' + (lb.rev ? ' un' : '') + '">' + lb.badge + '</span>'
+  + '<div class="foot">'
+  + (lb.rev ? esc(lb.closing) : '<h4>Never miss a filter change</h4>Sign up on the Ultra Clear app for your replacement reminder: <b>' + esc(UC_APP_URL) + '</b>'
+      + '<h4>Returns &amp; refund policy</h4><ul>' + UC_POLICY.map(function (p) { return '<li>' + esc(p) + '</li>'; }).join('') + '</ul>')
+  + '<h4>Contact us</h4>www.ucfilters.com · info@ucfilters.com<br>Kenya +254 717 774 049 · Global +1 302 244 8888 · @Ultra_Clear_Ltd'
+  + (lb.rev ? '' : '<div class="forest">' + esc(UC_FOREST) + '</div><div class="thanks">Thank you, ' + esc(r.first) + '.</div>') + '</div>';
+}
+function payLabel(r) {
+  return r.method + (r.channel === 'Till' ? ' · Till ' + UC_MPESA.till : r.channel === 'Paybill' ? ' · Paybill ' + UC_MPESA.paybill : '');
+}
+function receiptText(r) {
+  var M = function (n) { return money(n, r.sym); }, L = [], lb = labels(r);
+  L.push('*ULTRA CLEAR — ' + lb.doc.toUpperCase() + '*', 'No: ' + r.receiptNo, r.date + ' · ' + r.time, '');
+  if (!r.kind) L.splice(2, 0, 'Order ref: ' + (r.orderRef || orderRefOf(r.receiptNo)));
+  if (r.original) L.push('Original receipt: ' + r.original);
+  L.push('Customer: ' + r.first + ' ' + r.last, 'Phone: +' + r.phone, 'Location: ' + r.location + ', ' + r.country, '');
+  r.items.forEach(function (i) {
+    L.push(i.qty + ' x ' + i.product + (i.color ? ' (' + i.color + ')' : '') + ' — ' + M(i.qty * i.price)); });
+  L.push('');
+  if (r.discount) L.push('Subtotal: ' + M(r.gross), lb.disc + ': -' + M(r.discount));
+  L.push('*' + lb.total.toUpperCase() + ': ' + M(r.net) + '*', lb.by + ': ' + payLabel(r) + (r.ref ? ' (' + r.ref + ')' : ''));
+  if (r.payerPhone) L.push('Paid from: +' + r.payerPhone);
+  L.push('Sold by: ' + (r.agentName || agentName(r.agentId)), 'Issued via: ' + UC_SOURCE, '');
+  if (deliveryText(r)) L.splice(L.indexOf('') + 1, 0, 'Delivery: ' + deliveryText(r));
+  if (lb.rev) L.push(lb.closing, '');
+  else {
+    L.push('Never miss a filter change — sign up on the Ultra Clear app for your replacement reminder: ' + UC_APP_URL, '');
+    L.push('RETURNS & REFUND POLICY'); UC_POLICY.forEach(function (p) { L.push('• ' + p); });
+    L.push('', UC_FOREST, '');
+  }
+  L.push('www.ucfilters.com | info@ucfilters.com', 'Kenya +254 717 774 049 | Global +1 302 244 8888 | @Ultra_Clear_Ltd');
+  if (!lb.rev) L.push('', 'Thank you, ' + r.first + '.');
+  return L.join('\n');
+}
+
+/* ── PDF: written by hand so it needs no library and works with no signal ──
+   A one-page PDF sized to the receipt. Helvetica is built into every PDF
+   reader, so nothing has to be downloaded or embedded. */
+var HW = '278 278 355 556 556 889 667 191 333 333 389 584 278 333 278 278 556 556 556 556 556 556 556 556 556 556 278 278 584 584 584 556 1015 667 667 722 722 667 611 778 722 278 500 667 556 833 722 778 667 778 722 667 611 722 667 944 667 667 611 278 278 278 469 556 333 556 556 500 556 556 278 556 556 222 222 500 222 833 556 556 556 556 333 500 278 556 500 722 500 500 500 334 260 334 584'.split(' ');
+var HB = '278 333 474 556 556 889 722 238 333 333 389 584 278 333 278 278 556 556 556 556 556 556 556 556 556 556 333 333 584 584 584 611 975 722 722 722 722 667 611 778 722 278 556 722 611 833 722 778 667 778 722 667 611 722 667 944 667 667 611 333 278 333 584 556 333 556 611 556 611 556 333 611 611 278 278 556 278 889 611 611 611 611 389 556 333 611 556 778 556 556 500 389 280 389 584'.split(' ');
+function pdfStr(s) {            // → single-byte WinAnsi
+  return String(s == null ? '' : s).replace(/—/g, '\x97').replace(/–/g, '\x96').replace(/•/g, '\x95')
+    .replace(/[‘’]/g, '\x92').replace(/−/g, '-').replace(/[^\x20-\xff]/g, '?');
+}
+function tw(s, size, bold) {
+  var w = 0, t = bold ? HB : HW;
+  for (var i = 0; i < s.length; i++) { var c = s.charCodeAt(i);
+    w += c >= 32 && c <= 126 ? +t[c - 32] : ({ 151: 1000, 150: 556, 183: 278, 149: 350, 146: 222 })[c] || 556; }
+  return w * size / 1000;
+}
+function wrapPdf(s, size, bold, maxW) {
+  var out = [], line = '';
+  pdfStr(s).split(' ').forEach(function (word) {
+    var t = line ? line + ' ' + word : word;
+    if (line && tw(t, size, bold) > maxW) { out.push(line); line = word; } else line = t;
+  });
+  if (line) out.push(line);
+  return out;
+}
+function buildPdf(r) {
+  var W = 380, M = 28, R = W - M, ops = [], y = M;
+  var INK = [.07, .14, .18], MUTE = [.42, .49, .53], BLUE = [0, .36, .56], CY = [0, .63, .75], GREEN = [.1, .5, .24],
+      BODY = [.29, .36, .4], RULE = [.87, .9, .92];
+  function T(s, x, yy, size, bold, col, align) {
+    s = pdfStr(s); var w = tw(s, size, bold);
+    ops.push({ k: 't', s: s, x: align === 'r' ? x - w : align === 'c' ? x - w / 2 : x, y: yy, z: size, b: bold, c: col || INK });
+    return w;
+  }
+  function L(yy, wd, col, dash) { ops.push({ k: 'l', y: yy, w: wd, c: col, d: dash }); }
+  function B(x, yy, w, h, col) { ops.push({ k: 'r', x: x, y: yy, w: w, h: h, c: col }); }
+  function fit(s, size, bold, maxW) { s = pdfStr(s); while (s.length > 3 && tw(s, size, bold) > maxW) s = s.slice(0, -2); return s; }
+  function KV(k, v) { y += 14; T(k, M, y, 9, false, MUTE); T(fit(v, 9, true, R - M - 80), R, y, 9, true, INK, 'r'); }
+  function para(s, lead) { wrapPdf(s, 8.5, false, R - M).forEach(function (l) { y += lead || 11; T(l, M, y, 8.5, false, BODY); }); }
+  function Hd(s) { y += 17; T(s, M, y, 7, true, BLUE); }
+  var Mn = function (n) { return money(n, r.sym); }, lb = labels(r);
+
+  var img = LOGO && LOGO.jpg && LOGO.w ? atob(LOGO.jpg.split(',')[1]) : '';
+  if (img) { var ih = 36, iw = Math.min(190, ih * LOGO.w / LOGO.h); ih = iw * LOGO.h / LOGO.w;
+    ops.push({ k: 'i', x: M, y: y, w: iw, h: ih }); y += ih + 2; }
+  else { y += 18; var w = T('Ultra ', M, y, 20, true, [.04, .12, .16]); T('Clear', M + w, y, 20, true, CY); }
+  y += 12; T('Ultra Clear Filtration Technologies Ltd. \xB7 Engineering Wellness, Drop by Drop', M, y, 7, false, MUTE);
+  y += 24; T(lb.doc.toUpperCase(), M, y, 7, true, MUTE); T(r.date.toUpperCase(), R, y, 7, true, MUTE, 'r');
+  y += 14; T(r.receiptNo, M, y, 12, true); T(r.time, R, y, 12, true, INK, 'r');
+  y += 8; L(y, 1.5, INK); y += 2;
+  KV('Customer', r.first + ' ' + r.last); KV('Phone', '+' + r.phone); KV('Location', r.location + ', ' + r.country);
+  if (r.invoiceNo) KV('Invoice', r.invoiceNo);
+  if (r.original) KV('Original receipt', r.original);
+  if (deliveryText(r)) KV('Delivery', deliveryText(r));
+  KV('Sold by', r.agentName || agentName(r.agentId)); KV('Issued via', UC_SOURCE);
+  if (r.reason) KV('Reason', r.reason);
+
+  y += 20; T(lb.rev ? 'PRODUCT RETURNED' : 'PRODUCT', M, y, 7, true, MUTE); T('QTY', R - 95, y, 7, true, MUTE, 'r'); T('AMOUNT', R, y, 7, true, MUTE, 'r');
+  y += 6; L(y, .6, RULE);
+  r.items.forEach(function (i) {
+    wrapPdf(i.product, 9.5, false, R - M - 140).forEach(function (l, n) {
+      y += 14; T(l, M, y, 9.5);
+      if (!n) { T(String(i.qty), R - 95, y, 9.5, false, INK, 'r'); T(Mn(i.qty * i.price), R, y, 9.5, false, INK, 'r'); }
+    });
+    if (i.color) { y += 10; T('Colour: ' + i.color, M, y, 7.5, false, MUTE); }
+    if (i.qty > 1) { y += 10; T(Mn(i.price) + ' each', M, y, 7.5, false, MUTE); }
+    y += 7; L(y, .5, RULE);
+  });
+  y += 16; T('Subtotal', M, y, 9.5); T(Mn(r.gross), R, y, 9.5, false, INK, 'r');
+  if (r.discount) { y += 14; T(lb.disc, M, y, 9.5, false, GREEN); T('- ' + Mn(r.discount), R, y, 9.5, false, GREEN, 'r'); }
+  y += 9; L(y, 1.5, INK);
+  y += 18; T(lb.total, M, y, 13, true); T(Mn(r.net), R, y, 13, true, INK, 'r');
+  y += 6; KV(lb.by, payLabel(r)); if (r.ref) KV(r.method === 'M-Pesa' ? 'M-Pesa code' : 'Reference', r.ref);
+  if (r.payerPhone) KV('Paid from', '+' + r.payerPhone);
+  if (!r.kind) KV('Order ref', r.orderRef || orderRefOf(r.receiptNo));
+  if (r.creditCode) KV('Credit code', r.creditCode);
+  var bw = tw(lb.badge, 8, true) + 22;
+  y += 10; B(M, y, bw, 15, lb.rev ? [1, .95, .89] : [.9, .96, .93]); T(lb.badge, M + bw / 2, y + 10.6, 8, true, lb.rev ? [.71, .33, .04] : GREEN, 'c'); y += 15;
+  y += 14; L(y, .6, [.79, .84, .86], true);
+
+  if (lb.rev) { y += 6; para(lb.closing); }
+  else {
+    Hd('NEVER MISS A FILTER CHANGE'); para('Sign up on the Ultra Clear app for your replacement reminder: ' + UC_APP_URL);
+    Hd('RETURNS & REFUND POLICY'); UC_POLICY.forEach(function (p) { para('• ' + p); });
+  }
+  Hd('CONTACT US'); para('www.ucfilters.com \xB7 info@ucfilters.com'); para('Kenya +254 717 774 049 \xB7 Global +1 302 244 8888 \xB7 @Ultra_Clear_Ltd');
+  if (!lb.rev) {
+  var fl = wrapPdf(UC_FOREST, 8.5, false, R - M - 22);
+  y += 14; B(M, y, R - M, fl.length * 11 + 13, [.92, .96, .94]); y += 5;
+  fl.forEach(function (l) { y += 11; T(l, M + 11, y, 8.5, false, [.12, .48, .3]); }); y += 8;
+  y += 22; T('Thank you, ' + r.first + '.', W / 2, y, 10, true, INK, 'c');
+  }
+  var H = Math.ceil(y + M);
+
+  var f = function (n) { return (+n).toFixed(2); }, c3 = function (c) { return c.map(f).join(' '); };
+  var body = ops.map(function (o) {
+    if (o.k === 't') return 'BT /F' + (o.b ? 2 : 1) + ' ' + f(o.z) + ' Tf ' + c3(o.c) + ' rg ' + f(o.x) + ' ' + f(H - o.y) + ' Td ('
+      + o.s.replace(/[\\()]/g, '\\$&') + ') Tj ET';
+    if (o.k === 'i') return 'q ' + f(o.w) + ' 0 0 ' + f(o.h) + ' ' + f(o.x) + ' ' + f(H - o.y - o.h) + ' cm /Im1 Do Q';
+    if (o.k === 'l') return f(o.w) + ' w ' + c3(o.c) + ' RG ' + (o.d ? '[3 3] 0 d ' : '[] 0 d ') + M + ' ' + f(H - o.y) + ' m ' + R + ' ' + f(H - o.y) + ' l S';
+    return c3(o.c) + ' rg ' + f(o.x) + ' ' + f(H - o.y - o.h) + ' ' + f(o.w) + ' ' + f(o.h) + ' re f';
+  }).join('\n');
+  var font = function (n) { return '<< /Type /Font /Subtype /Type1 /BaseFont /' + n + ' /Encoding /WinAnsiEncoding >>'; };
+  var objs = ['<< /Type /Catalog /Pages 2 0 R >>', '<< /Type /Pages /Kids [3 0 R] /Count 1 >>',
+    '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + W + ' ' + H + '] /Resources << /Font << /F1 4 0 R /F2 5 0 R >>' + (img ? ' /XObject << /Im1 7 0 R >>' : '') + ' >> /Contents 6 0 R >>',
+    font('Helvetica'), font('Helvetica-Bold'), '<< /Length ' + body.length + ' >>\nstream\n' + body + '\nendstream'];
+  if (img) objs.push('<< /Type /XObject /Subtype /Image /Width ' + LOGO.w + ' /Height ' + LOGO.h
+    + ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + img.length + ' >>\nstream\n' + img + '\nendstream');
+  var out = '%PDF-1.4\n', off = [];
+  objs.forEach(function (o, i) { off.push(out.length); out += (i + 1) + ' 0 obj\n' + o + '\nendobj\n'; });
+  var xref = out.length;
+  out += 'xref\n0 ' + (objs.length + 1) + '\n0000000000 65535 f \n'
+    + off.map(function (o) { return ('0000000000' + o).slice(-10) + ' 00000 n \n'; }).join('')
+    + 'trailer\n<< /Size ' + (objs.length + 1) + ' /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF';
+  var bytes = new Uint8Array(out.length);
+  for (var i = 0; i < out.length; i++) bytes[i] = out.charCodeAt(i) & 255;
+  return bytes;
+}
+
+/* ── share ─────────────────────────────────────────────────────────────── */
+function pdfFile() {
+  return new File([buildPdf(current)], 'UltraClear-Receipt-' + current.receiptNo + '.pdf', { type: 'application/pdf' });
+}
+/* iPhone/iPad detection (iPadOS reports itself as a Mac with touch). */
+var IOS = /iP(hone|od|ad)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+var STANDALONE = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+function download(file) {
+  var url = URL.createObjectURL(file);
+  /* On an iPhone home-screen app a download link opens the PDF full-screen with no way back,
+     so open it in a new window there (Safari shows it with its own Share and Done buttons). */
+  if (IOS && STANDALONE) { window.open(url, '_blank'); setTimeout(function () { URL.revokeObjectURL(url); }, 60000); return; }
+  var a = document.createElement('a'); a.href = url; a.download = file.name; a.rel = 'noopener';
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+}
+$('shPdf').onclick = function () {
+  var f = pdfFile();
+  /* Phones: the system share sheet carries the actual PDF into WhatsApp, Messages or Mail.
+     Laptops mostly cannot share a file from a web page, so the PDF is downloaded to attach by hand. */
+  var can = false; try { can = !!(navigator.canShare && navigator.canShare({ files: [f] })); } catch (e) {}
+  if (can) {
+    navigator.share({ files: [f], title: 'Ultra Clear receipt ' + current.receiptNo }).catch(function (e) {
+      if (e && e.name !== 'AbortError') { download(f); say('pdfMsg', 'warn', 'Sharing was blocked, so the PDF was opened instead — use its Share button.'); }
+    });
+  } else {
+    download(f);
+    say('pdfMsg', 'warn', 'This device cannot share a file directly, so the PDF was <b>downloaded</b> ('
+      + esc(f.name) + '). Attach it in WhatsApp Web or your email.');
+  }
+};
+$('dlPdf').onclick = function () { download(pdfFile()); };
+$('shWa').onclick = function () {
+  location.href = 'https://wa.me/' + current.phone + '?text=' + encodeURIComponent(receiptText(current));
+};
+$('shSms').onclick = function () {
+  /* SMS has no bold; iOS needs "&body=", Android "?body=" — "?&body=" satisfies both. */
+  location.href = 'sms:+' + current.phone + '?&body=' + encodeURIComponent(receiptText(current).replace(/\*/g, ''));
+};
+$('shMail').onclick = function () {
+  location.href = 'mailto:' + encodeURIComponent(current.email) + '?subject='
+    + encodeURIComponent('Your Ultra Clear ' + labels(current).doc.toLowerCase() + ' ' + current.receiptNo)
+    + '&body=' + encodeURIComponent(receiptText(current).replace(/\*/g, ''));
+};
+function resetForm() {
+  ['fname', 'lname', 'phone', 'email', 'invoiceNo', 'payRef', 'payerPhone'].forEach(function (id) { $(id).value = ''; });
+  $('items').innerHTML = ''; addItem(); clearCode();
+  payMethod = ''; [].forEach.call($('method').children, function (x) { x.setAttribute('aria-pressed', 'false'); });
+  $('refWrap').hidden = true; $('payerWrap').hidden = true; $('chWrap').hidden = true; $('mpesaCh').value = 'Till'; $('orderRefShow').innerHTML = ''; $('delivery').value = 'now'; $('delDateWrap').hidden = true; $('delDate').value = '';
+  current = null; tick(); paintTotals();
+}
+$('newBtn').onclick = function () { resetForm(); show('formView'); };
+$('syncBtn').onclick = function () {
+  var b = this; b.disabled = true; b.textContent = 'Sending…';
+  syncAll(function (tried, left) {
+    b.disabled = false; b.textContent = 'Send waiting receipts now'; badge();
+    $('pend').textContent = (tried - left) + ' sent' + (left ? ', ' + left + ' still waiting — no connection' : ' — all receipts are at the office');
+    if (!$('histView').hidden) renderHist();
+  });
+};
+
+/* ── void / refund ─────────────────────────────────────────────────────────
+   Online only, and only with the supervisor PIN, which the SERVER checks. The
+   server also works out the refund amount (each item's price less its share of
+   any discount), so the phone cannot refund more than was paid. */
+var revKind = 'Refund';
+function paintRev() {
+  var k = revKind, isVoid = k === 'Void', isRepl = k === 'Replacement', mode = windowMode(current), dh = delivHours(current);
+  var credit = k === 'Refund' && mode === 'credit';
+  var closed = isVoid ? hoursOld(current) > UC_VOID_HOURS : isRepl ? dh > UC_FAULTY_HOURS : mode === 'closed';
+  var pending = current.deliveryDate && !current.deliveredAt ? 'Delivery not yet confirmed — the clocks start at the end of the planned delivery day. ' : '';
+  [].forEach.call($('revKind').children, function (b) { b.setAttribute('aria-pressed', String(b.dataset.v === k)); });
+  $('revHint').textContent = isVoid
+    ? (closed ? 'Issued more than ' + UC_VOID_HOURS + ' hours ago — it can no longer be voided. Use a return if the policy still allows one.'
+              : 'Only for a receipt issued in error, within ' + UC_VOID_HOURS + ' hours of issue. Everything still on it is reversed and the money goes back.')
+    : isRepl
+    ? pending + (closed ? 'More than ' + UC_FAULTY_HOURS + ' hours since delivery — faulty goods can no longer be replaced under the policy.'
+              : 'Faulty or damaged: the same item is replaced and no money changes hands. Allowed up to ' + UC_FAULTY_HOURS + ' hours after delivery.')
+    : pending + (closed ? 'More than ' + UC_CREDIT_HOURS + ' hours since delivery. Under the policy there is no refund or store credit.'
+    : credit ? 'More than ' + UC_REFUND_HOURS + ' hours since delivery: the customer gets STORE CREDIT, not money — a code for their phone number, valid 6 months, unused balance carries forward.'
+    : 'Within ' + UC_REFUND_HOURS + ' hours of delivery: full money back. Enter how many of each item the customer is returning.');
+  $('revLines').hidden = isVoid || closed;
+  $('revRestockWrap').hidden = isRepl;
+  $('revMethodWrap').hidden = $('revRefWrap').hidden = credit || closed || isRepl;
+  $('revGo').disabled = closed;
+  $('revGo').textContent = isVoid ? 'Void this receipt' : isRepl ? 'Replace selected items' : credit ? 'Issue store credit' : 'Refund selected items';
+}
+$('revRestock').onchange = paintRev;
+$('revKind').onclick = function (e) { var b = e.target.closest('button'); if (b) { revKind = b.dataset.v; paintRev(); } };
+$('revOpen').onclick = function () {
+  var x = store().filter(function (y) { return y.r.receiptNo === current.receiptNo; })[0], back = (x && x.back) || {};
+  $('revLines').innerHTML = current.items.map(function (i, n) {
+    var left = current.left ? (current.left[n + 1] || 0) : i.qty - (back[n + 1] || 0);
+    return '<div class="row" style="align-items:flex-end;margin-bottom:6px"><div style="flex:3 1 170px"><label>' + esc(i.product)
+      + (i.color ? ' (' + esc(i.color) + ')' : '') + ' <span class="opt">— ' + left + ' can be returned</span></label></div>'
+      + '<div style="flex:1 1 70px"><input class="r-qty" data-line="' + (n + 1) + '" data-max="' + left + '" inputmode="numeric" value="0"'
+      + (left ? '' : ' disabled') + '></div></div>';
+  }).join('');
+  ['revRef', 'revReason', 'revPin'].forEach(function (id) { $(id).value = ''; });
+  if (current.remote) $('revPin').value = supPin;
+  $('revRestock').value = 'Yes'; $('revMsg').hidden = true; revKind = 'Refund'; paintRev();
+  $('revPanel').hidden = false; $('revOpen').hidden = true; $('revPanel').scrollIntoView({ behavior: 'smooth' });
+};
+$('revCancel').onclick = refreshRev;
+$('revGo').onclick = function () {
+  var orig = current, lines = [], over = false;
+  [].forEach.call(document.querySelectorAll('.r-qty'), function (el) {
+    var qv = Math.round(num(el.value)); if (qv > +el.dataset.max) over = true; if (qv > 0) lines.push(el.dataset.line + '|' + qv);
+  });
+  if (revKind !== 'Void' && over) { say('revMsg', 'bad', 'One of the quantities is more than is on the receipt.'); return; }
+  if (revKind !== 'Void' && !lines.length) { say('revMsg', 'bad', 'Enter how many of at least one item are affected.'); return; }
+  if (!gv('revReason')) { say('revMsg', 'bad', 'A reason is required.'); return; }
+  if (!gv('revPin')) { say('revMsg', 'bad', 'Ask your supervisor to enter their PIN.'); return; }
+  var s = stamp(), btn = $('revGo'), method = gv('revMethod'), ref = gv('revRef').toUpperCase(), reason = gv('revReason');
+  var data = { formType: 'reversal', pin: gv('revPin'), receiptNo: orig.receiptNo, reversalNo: newDocNo(revKind === 'Void' ? 'VD' : 'RT', orig.country, s),
+    kind: revKind, reason: reason, refundMethod: method, refundRef: ref, restock: gv('revRestock'),
+    lines: revKind === 'Void' ? '' : lines.join('~'), agent: orig.agentId, agentName: orig.agentName || agentName(orig.agentId), date: s.iso, time: s.time };
+  btn.disabled = true; say('revMsg', 'warn', 'Asking the office record…');
+  ucSend(UC_LEADS_URL, data, function (res) {
+    paintRev();
+    if (!(res && res.status === 'ok')) {
+      say('revMsg', 'bad', res && res.message ? '<b>Not done.</b> ' + esc(res.message)
+        : '<b>Not done — no connection.</b> Voids and refunds must be approved by the server, so they need signal. Nothing has changed.');
+      return;
+    }
+    var a = store(), x = a.filter(function (y) { return y.r.receiptNo === orig.receiptNo; })[0];
+    if (res.duplicate) { if (x) { x.reversed = x.reversed || 'Refunded'; storeSave(a); }
+      openReceipt(orig, { kind: 'warn', html: '<b>Already recorded at the office.</b>' }); return; }
+    var note = { kind: res.kind, receiptNo: res.reversalNo, original: orig.receiptNo, reason: reason, date: s.date, isoDate: s.iso,
+      time: s.time, ts: s.ts, first: orig.first, last: orig.last, phone: orig.phone, email: orig.email, country: orig.country,
+      location: orig.location, cur: orig.cur, sym: orig.sym, invoiceNo: '', code: '',
+      items: (res.lines || []).map(function (l) { return { sku: l.sku, product: l.product, color: l.colour, qty: l.qty, price: l.price }; }),
+      gross: res.gross, discount: res.discount, net: res.refund, method: res.method || method, ref: res.mode === 'credit' ? '' : ref,
+      creditCode: res.creditCode || '', creditExpires: res.creditExpires || '', creditBack: res.creditBack || 0,
+      creditBackCode: res.creditBack ? orig.code : '', agentId: orig.agentId, agentName: orig.agentName };
+    if (x && res.kind === 'Replacement') { if (!x.reversed) x.reversed = res.state; }
+    else if (x) { x.reversed = res.state; x.back = x.back || {};
+      (res.lines || []).forEach(function (l) { if (l.line) x.back[l.line] = (x.back[l.line] || 0) + l.qty; }); }
+    a.push({ r: note, sale: 'ok', rec: 'ok' }); storeSave(a);
+    openReceipt(note, { kind: res.flags ? 'warn' : 'ok', html: (res.kind === 'Replacement'
+      ? '<b>Replacement issued.</b> Hand over the replacement item(s) — no money changes hands. Share this note with the customer.'
+      : res.creditCode
+      ? '<b>Store credit ' + esc(res.creditCode) + ' issued — worth ' + esc(money(res.refund, orig.sym)) + '.</b> No money is returned. Share this note; the customer uses the code with their phone number on their next purchase.'
+      : '<b>' + esc(res.state) + ' — ' + esc(money(res.refund, orig.sym)) + ' to return to the customer.</b> Share this note with them.')
+      + (res.creditBack ? '<br>' + esc(money(res.creditBack, orig.sym)) + ' has been put back on store credit ' + esc(orig.code) + '.' : '') + (res.flags ? '<br><b>For the office:</b> ' + esc(res.flags) : '') });
+  }, { timeout: 25000 });
+};
+
+/* ── supervisor lookup: any receipt, any device ────────────────────────── */
+var supPin = '';
+$('findGo').onclick = function () {
+  var no = gv('findNo').toUpperCase().replace(/\s+/g, ''), pin = gv('findPin');
+  if (!no || !pin) { say('findMsg', 'bad', 'Enter the receipt number and the supervisor PIN.'); return; }
+  say('findMsg', 'warn', 'Looking in the office record…');
+  ucSend(UC_LEADS_URL, { formType: 'receiptGet', receiptNo: no, pin: pin }, function (res) {
+    if (!(res && res.status === 'ok')) {
+      say('findMsg', 'bad', res && res.message ? esc(res.message) : 'No connection — looking up a receipt needs signal.'); return;
+    }
+    var q = res.receipt, m = UC_COUNTRIES[q.country] || {}, left = {};
+    (res.lines || []).forEach(function (l) { left[l.line] = l.left; });
+    var r = { remote: true, left: left, status: q.status, receiptNo: q.receiptNo,
+      invoiceNo: q.invoiceNo && q.invoiceNo !== q.receiptNo ? q.invoiceNo : '', date: q.date, isoDate: q.date, time: q.time,
+      ts: new Date(Date.now() - (Number(res.hours) || 0) * 3600000).toISOString(), first: q.first, last: q.last, phone: q.phone,
+      email: q.email, country: q.country, location: q.location, cur: q.currency, sym: m.sym || q.currency,
+      items: (res.lines || []).length ? res.lines.map(function (l) { return { sku: l.sku, product: l.product, color: l.colour, qty: l.qty, price: l.price }; })
+                                      : [{ sku: '', product: q.items || 'Whole receipt', color: '', qty: 1, price: q.gross }],
+      gross: q.gross, discount: q.discount, net: q.net, code: q.code, method: q.method, ref: q.ref, agentId: q.agent, agentName: q.agentName || agentName(q.agent),
+      orderRef: q.orderRef || '', channel: q.mpesaChannel || '', payerPhone: String(q.payerPhone || '').replace(/\D/g, ''),
+      deliveryDate: q.deliveryDate || '', deliveredAt: q.deliveredAt || (q.deliveryDate ? '' : new Date(Date.now() - (Number(res.hours) || 0) * 3600000).toISOString()) };
+    supPin = pin; $('findPin').value = ''; $('findMsg').hidden = true;
+    openReceipt(r, { kind: 'warn', html: '<b>Office record</b> — issued on another device, ' + Math.floor(res.hours) + ' hours ago.'
+      + (q.status ? ' Status: <b>' + esc(q.status) + '</b>.' : '') });
+  }, { timeout: 20000 });
+};
+
+/* ── supervisor: sales team ────────────────────────────────────────────────
+   Names live in the Agents tab. A receipt stores the Agent ID, so correcting a
+   name never breaks old receipts; switching someone off hides them from the list
+   but keeps their history. The server checks the PIN on every call.          */
+var teamPin = '';
+var rosterBusy = false;
+function refreshRoster(cb) {
+  if (rosterBusy || navigator.onLine === false) { if (cb) cb(false); return; }
+  /* until the server is ready, ask at most every 20 minutes: each unanswered ask is logged by the old lead code */
+  if (!serverReady() && Date.now() - Number(ls('ucProbeAt') || 0) < 20 * 60000) { if (cb) cb(false); return; }
+  if (!serverReady()) ls('ucProbeAt', String(Date.now()));
+  rosterBusy = true;
+  ucSend(UC_LEADS_URL, { formType: 'roster' }, function (res) {
+    rosterBusy = false;
+    var ok = !!(res && res.status === 'ok' && Array.isArray(res.agents));
+    if (ok) {
+      var first = !serverReady();
+      ls('ucRoster', JSON.stringify(res.agents)); ls('ucRosterAt', String(Date.now()));
+      if (first) { ls('ucServerOk', '1'); paintNet(); }
+      fillAgents(res.agents);
+      if (first) { loadCatalog(); registerDevice(); if (store().some(isPending)) syncAll(function () { if (!$('histView').hidden) renderHist(); }); }
+    }
+    if (cb) cb(ok);
+  }, { timeout: 15000 });
+}
+function loadTeam() {
+  ucSend(UC_LEADS_URL, { formType: 'agentList', pin: teamPin }, function (res) {
+    if (!(res && res.status === 'ok')) {
+      $('teamList').innerHTML = ''; $('teamAdd').hidden = true;
+      say('teamMsg', 'bad', res && res.message ? esc(res.message)
+        : res && res.reason === 'stale' ? 'The office server is running an older script — publish the v1.9 add-on.' : 'No connection — the sales team needs signal.');
+      return;
+    }
+    $('teamMsg').hidden = true; $('teamAdd').hidden = false;
+    $('teamList').innerHTML = res.agents.map(function (a) {
+      return '<div class="item" data-id="' + esc(a.id) + '"><label>' + esc(a.id) + ' · ' + esc(a.role || '') + '</label>'
+        + '<div class="row"><div><input class="t-name" value="' + esc(a.name) + '" autocomplete="off"></div>'
+        + '<div><select class="t-act"><option value="Yes"' + (a.active ? ' selected' : '') + '>Active</option>'
+        + '<option value="No"' + (a.active ? '' : ' selected') + '>Switched off</option></select></div></div>'
+        + '<button type="button" class="ghost t-save" style="margin-top:8px">Save</button></div>';
+    }).join('') || '<p class="hint">No one on the Agents tab yet.</p>';
+  }, { timeout: 20000 });
+}
+$('teamLoad').onclick = function () {
+  teamPin = gv('teamPin'); if (!teamPin) { say('teamMsg', 'bad', 'Enter the supervisor PIN.'); return; }
+  $('teamPin').value = ''; say('teamMsg', 'warn', 'Opening…'); loadTeam();
+};
+$('teamList').onclick = function (e) {
+  var b = e.target.closest('.t-save'); if (!b) return;
+  var box = b.closest('.item'), name = box.querySelector('.t-name').value.trim();
+  b.disabled = true; say('teamMsg', 'warn', 'Saving…');
+  ucSend(UC_LEADS_URL, { formType: 'agentSave', pin: teamPin, agentId: box.dataset.id, name: name,
+      active: box.querySelector('.t-act').value }, function (res) {
+    b.disabled = false;
+    if (!(res && res.status === 'ok')) { say('teamMsg', 'bad', res && res.message ? esc(res.message) : 'No connection — not saved.'); return; }
+    say('teamMsg', 'ok', '<b>' + esc(box.dataset.id) + ' saved.</b> ' + (res.changed && res.changed.length ? esc(res.changed.join(', ')) + '.' : 'No change.'));
+    refreshRoster(); loadTeam();
+  }, { timeout: 20000 });
+};
+$('teamAddGo').onclick = function () {
+  var name = gv('newAgentName'); if (!name) { say('teamMsg', 'bad', 'Type the new person\'s full name.'); return; }
+  var ph = gv('newAgentPhone') ? intlPhone(gv('newAgentPhone'), mkt().dial) : '';
+  this.disabled = true; var btn = this; say('teamMsg', 'warn', 'Adding…');
+  ucSend(UC_LEADS_URL, { formType: 'agentSave', pin: teamPin, name: name, role: gv('newAgentRole'), phone: ph }, function (res) {
+    btn.disabled = false;
+    if (!(res && res.status === 'ok')) { say('teamMsg', 'bad', res && res.message ? esc(res.message) : 'No connection — not added.'); return; }
+    $('newAgentName').value = ''; $('newAgentPhone').value = '';
+    say('teamMsg', 'ok', '<b>' + esc(name) + ' added as ' + esc(res.agentId) + '.</b> They now appear under "Sold by" on every phone.');
+    refreshRoster(); loadTeam();
+  }, { timeout: 20000 });
+};
+
+/* ── office link: shows exactly why receipts are or are not reaching the office ── */
+var UC_BUILD = '1.9.3 · 15 Nov 2026';
+function paintLink() {
+  var a = store(), w = a.filter(isPending).length, at = ls('ucRosterAt');
+  $('linkInfo').innerHTML = 'App ' + esc(UC_BUILD) + ' · device ' + esc(deviceId()) + ' · ' + (STANDALONE ? 'Home Screen app' : (IOS ? 'Safari tab' : 'browser tab')) + ' · ' + a.length + ' receipt(s) stored here' + '<br>Office address …' + esc(UC_LEADS_URL.slice(-18, -5))
+    + '<br>Sending: <b>' + (serverReady() ? 'ON' : 'OFF (phone-only until the office answers)') + '</b> · waiting receipts: <b>' + w + '</b>'
+    + (at ? '<br>Last good answer from the office: ' + esc(new Date(Number(at)).toLocaleString('en-GB')) : '<br>The office has never answered this phone correctly.');
+}
+$('linkTest').onclick = function () {
+  var b = this; b.disabled = true; say('linkMsg', 'warn', 'Asking the office…');
+  ls('ucProbeAt', '0');
+  ucSend(UC_LEADS_URL, { formType: 'ping' }, function (pg) {
+    ucSend(UC_LEADS_URL, { formType: 'roster' }, function (ro) {
+      b.disabled = false;
+      var steps = [];
+      if (navigator.onLine === false) steps.push('<b>No signal on this phone.</b> Try again with data or Wi-Fi.');
+      else if (pg && pg.status === 'ok' && pg.addon) steps.push('✓ Office add-on v' + esc(pg.addon) + ' answered. Book: ' + esc(pg.book) + ' (' + esc(pg.receipts) + ' receipts recorded).');
+      else if (pg && pg.status === 'error' && pg.message) steps.push('✗ ' + esc(pg.message));
+      else if (pg && pg.status === 'ok') steps.push('✗ The office answered with the OLD lead code: the add-on is not in the PUBLISHED version. In Apps Script: Deploy → Manage deployments → this address → New version → Deploy.');
+      else steps.push('✗ No answer from the office address (' + esc((pg && pg.reason) || 'unknown') + '). Check the address is a live deployment.');
+      var ok = !!(ro && ro.status === 'ok' && Array.isArray(ro.agents));
+      if (ok) {
+        var first = !serverReady();
+        ls('ucRoster', JSON.stringify(ro.agents)); ls('ucRosterAt', String(Date.now())); fillAgents(ro.agents);
+        if (first) { ls('ucServerOk', '1'); registerDevice(); loadCatalog(); }
+        paintNet();
+        var n = store().filter(isPending).length;
+        steps.push('✓ Sales team received (' + ro.agents.length + '). Sending is ON.' + (n ? ' Sending ' + n + ' waiting receipt(s) now…' : ''));
+        if (n) syncAll(function (tried, left) { renderHist(); paintLink();
+          say('linkMsg', left ? 'bad' : 'ok', steps.join('<br>') + '<br>' + (left ? '✗ ' + left + ' receipt(s) still waiting — open one to see the office\'s reason.' : '✓ All waiting receipts reached the office.')); });
+      }
+      paintLink();
+      say('linkMsg', ok ? 'ok' : 'bad', steps.join('<br>'));
+    }, { timeout: 20000 });
+  }, { timeout: 20000 });
+};
+
+/* ── history + backup ──────────────────────────────────────────────────── */
+function renderHist() {
+  var a = store().slice().reverse();
+  $('devShow').textContent = 'This device: ' + deviceId() + (deviceId().charAt(0) === 'T' ? ' (temporary — it gets its office code the next time it is online)' : '');
+  $('histList').innerHTML = a.length ? a.map(function (x) {
+    try {
+      var st = statusOf(x), r = x.r || {};
+      return '<button type="button" class="hrow" data-no="' + esc(r.receiptNo) + '"><span class="a"><b>' + esc((r.first || '') + ' ' + (r.last || ''))
+        + '</b><small>' + esc(r.receiptNo) + ' · ' + esc(r.date) + ' ' + esc(r.time) + '</small></span>'
+        + '<span class="amt">' + esc(money(r.net, r.sym)) + '</span><span class="chip ' + st.cls + '">' + st.chip + '</span></button>';
+    } catch (e) { return '<p class="hint" style="color:var(--bad)">One saved receipt could not be shown (' + esc(e.message) + '). It is still stored and still in the CSV backup.</p>'; }
+  }).join('') : '<p class="hint">No receipts have been issued ' + (STANDALONE ? 'in this Home Screen app' : 'in this browser tab') + ' yet.'
+    + (IOS ? ' On iPhone, the Home Screen app and a Safari tab keep <b>separate</b> receipts — check the other one too.' : '') + '</p>';
+}
+$('histList').onclick = function (e) {
+  var b = e.target.closest('.hrow'); if (!b) return;
+  var x = store().filter(function (y) { return y.r.receiptNo === b.dataset.no; })[0];
+  if (x) openReceipt(x.r, statusOf(x));
+};
+$('histBtn').onclick = function () {
+  show('histView');
+  try { renderHist(); } catch (e) { $('histList').innerHTML = '<p class="hint" style="color:var(--bad)">Could not list receipts: ' + esc(e.message) + '</p>'; }
+  try { paintLink(); } catch (e) { $('linkInfo').textContent = 'Office link details unavailable: ' + e.message; }
+};
+$('histBack').onclick = function () { if (current) resetForm(); show('formView'); };
+$('csvBtn').onclick = function () {
+  var cols = ['receiptNo', 'kind', 'original', 'reason', 'date', 'time', 'first', 'last', 'phone', 'email', 'country', 'location', 'items', 'gross', 'code',
+              'discount', 'net', 'cur', 'method', 'ref', 'channel', 'payerPhone', 'orderRef', 'agentId', 'agentName', 'deliveryDate', 'deliveredAt', 'creditCode', 'office'];
+  var cell = function (v) { v = String(v == null ? '' : v); return /[",\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  var rows = store().map(function (x) {
+    var r = x.r, o = {}; for (var k in r) o[k] = r[k];
+    o.items = itemsLine(r); o.isoDate = r.isoDate; o.orderRef = r.kind ? '' : (r.orderRef || orderRefOf(r.receiptNo)); o.date = r.isoDate; o.office = statusOf(x).chip; o.kind = r.kind || 'Sale';
+    if (r.kind) { o.gross = -r.gross; o.discount = -r.discount; o.net = -r.net; }
+    return cols.map(function (c) { return cell(o[c]); }).join(',');
+  });
+  var f = new File(['﻿' + cols.join(',') + '\n' + rows.join('\n')], 'UltraClear-receipts-backup-' + stamp().iso + '.csv', { type: 'text/csv' });
+  if (navigator.canShare && navigator.canShare({ files: [f] })) navigator.share({ files: [f], title: f.name }).catch(function () {});
+  else download(f);
+};
+
+/* ── init ──────────────────────────────────────────────────────────────── */
+function paintNet() {
+  $('net').textContent = !serverReady() ? '● Phone-only mode — receipts are saved here and sent to the office after the update'
+    : navigator.onLine === false ? '● Offline — receipts still work; codes cannot be checked' : '● Online';
+  $('net').style.color = navigator.onLine === false ? '#FFD08A' : '#8FF0C0';
+}
+$('country').innerHTML = Object.keys(UC_COUNTRIES).map(function (c) { return '<option>' + c + '</option>'; }).join('');
+$('country').value = ls('ucLastCountry') || 'Kenya';
+$('location').value = ls('ucLastLocation') || '';
+$('country').addEventListener('change', function () {
+  if (applied) { clearCode(true); say('codeMsg', 'warn', 'Country changed — check the code again.'); }
+  [].forEach.call(document.querySelectorAll('.item'), applyCatalog);      // prices follow the currency
+  paintTotals(); paintOrderRef();
+});
+$('phone').addEventListener('change', function () { if (applied) { clearCode(true); say('codeMsg', 'warn', 'Phone changed — check the code again.'); } });
+$('items').addEventListener('input', onGrossChange);
+$('items').addEventListener('change', onGrossChange);
+$('addItem').onclick = addItem;
+$('applyCode').onclick = checkCode;
+addItem(); fillAgents(); tick(); paintTotals(); badge(); paintNet(); loadLogo(); registerDevice(); setInterval(tick, 20000);
+refreshRoster();
+/* The catalogue (products, prices, stock) is re-read from the sheet when the app opens,
+   every 5 minutes while it is open, and whenever the rep comes back to it, so a price
+   or stock change in the Products tab reaches the phones within minutes. */
+var catBusy = false;
+function loadCatalog() {
+  if (catBusy || navigator.onLine === false) return; catBusy = true;
+  ucSend(UC_LEADS_URL, { formType: 'catalog' }, function (res) {
+    catBusy = false;
+    if (!(res && res.status === 'ok' && Array.isArray(res.products) && res.products.length)) return;
+    var before = ls('ucCatalog');
+    CAT = res.products; ls('ucCatalog', JSON.stringify(CAT));
+    if (before === JSON.stringify(CAT)) return;
+    if (!readItems().some(function (i) { return i.product; })) { $('items').innerHTML = ''; addItem(); }
+    else [].forEach.call(document.querySelectorAll('.item'), applyCatalog);   // new prices/stock on lines already chosen
+    paintTotals();
+  }, { timeout: 15000 });
+}
+loadCatalog();
+setInterval(function () { loadCatalog(); refreshRoster(); }, 5 * 60 * 1000);
+document.addEventListener('visibilitychange', function () { if (!document.hidden) { loadCatalog(); refreshRoster(); } });
+if (store().some(isPending) && navigator.onLine !== false) syncAll();
+window.addEventListener('online', function () { paintNet(); loadCatalog(); refreshRoster(); if (store().some(isPending)) syncAll(function () { if (!$('histView').hidden) renderHist(); }); });
+window.addEventListener('offline', paintNet);
+/* The service worker is what lets a phone OPEN the app with no signal. It only
+   exists on a hosted https copy; a file opened straight from a laptop needs none. */
+/* ── phone install + keep data safe ─────────────────────────────────────────
+   Receipts waiting to reach the office live in this phone's browser storage.
+   iPhone Safari deletes a website's storage after about 7 days without a visit
+   UNLESS the site was added to the Home Screen, and Android can clear it when
+   space runs low unless storage is marked persistent. So: ask for persistent
+   storage, and until the app is installed show how to install it.          */
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(function () {}); } catch (e) {}
+var installEvt = null;
+function paintInstall() {
+  if (STANDALONE || location.protocol !== 'https:') { $('installTip').hidden = true; return; }
+  $('installTip').hidden = false;
+  if (IOS) $('installText').innerHTML = 'On iPhone: open this page in <b>Safari</b>, tap <b>Share</b> (the square with an arrow) → <b>Add to Home Screen</b> → <b>Add</b>. Then always open the app from its Home Screen icon — it keeps receipts safe and works with no signal.';
+  else $('installText').innerHTML = installEvt ? 'Tap <b>Install app</b> below. Then open it from its icon — it keeps receipts safe and works with no signal.'
+    : 'On Android: in <b>Chrome</b> tap the <b>⋮</b> menu → <b>Add to Home screen</b> (or <b>Install app</b>). Then open it from its icon.';
+  $('installBtn').hidden = !installEvt;
+}
+window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); installEvt = e; paintInstall(); });
+window.addEventListener('appinstalled', function () { installEvt = null; $('installTip').hidden = true; });
+$('installBtn').onclick = function () { if (!installEvt) return; installEvt.prompt(); installEvt.userChoice.then(function () { installEvt = null; paintInstall(); }); };
+paintInstall();
+if ('serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(function () {});
+</script>
+</body>
+</html>

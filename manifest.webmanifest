@@ -1,0 +1,17 @@
+{
+  "id": "./",
+  "name": "Ultra Clear Receipt",
+  "short_name": "UC Receipt",
+  "description": "Issue, share and back up Ultra Clear receipts, with or without signal.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f4f7f9",
+  "theme_color": "#0B1F2A",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
