@@ -329,15 +329,28 @@
       d.textContent = 'App error (tap to close, screenshot for the office): ' + msg;
     } catch (e) {}
   }
+  /* Browser extensions, screen recorders and in-app browsers can throw errors that are NOT ours
+     (e.g. "Permission denied to access property TabBeingRecorded"). Never show those. */
+  function foreign(text, stack, file) {
+    var all = String(text || '') + ' ' + String(stack || '') + ' ' + String(file || '');
+    if (/-extension:|TabBeingRecorded|Permission denied to access property|ResizeObserver loop|^Script error\.?$/i.test(all)) return true;
+    if (file && file.indexOf(location.origin) !== 0 && file !== location.href && !/^(blob|data):/.test(file)) return true;
+    return false;
+  }
   window.addEventListener('error', function (e) {
     if (e && e.filename && /script\.google|googleusercontent/.test(e.filename)) return;   // office replies, handled elsewhere
+    if (foreign(e && e.message, e && e.error && e.error.stack, e && e.filename)) { try { console.warn('ignored foreign error:', e.message); } catch (x) {} return; }
     bar((e && e.message || 'unknown') + (e && e.lineno ? ' (line ' + e.lineno + ')' : ''));
   });
-  window.addEventListener('unhandledrejection', function (e) { bar('promise: ' + (e && e.reason && e.reason.message || e && e.reason || 'unknown')); });
+  window.addEventListener('unhandledrejection', function (e) {
+    var r = e && e.reason, msg = (r && r.message) || r || 'unknown';
+    if (foreign(msg, r && r.stack, '')) { try { console.warn('ignored foreign rejection:', msg); } catch (x) {} return; }
+    bar('promise: ' + msg);
+  });
   window.ucShowError = bar;
 })();
 /* ══════════════════════════════════════════════════════════════════════════
-   ULTRA CLEAR — RECEIPT  ·  v1.9.3  ·  15 Nov 2026
+   ULTRA CLEAR — RECEIPT  ·  v1.9.5  ·  17 Nov 2026
 
    NEW IN v1.9: prices locked to the SKU master (UC_MASTER_SKU_v9.1); Order Ref and
    'Paid from' phone on every receipt; supervisor can add / rename / switch off sales
@@ -360,7 +373,7 @@ const UC_LEADS_URL = 'https://script.google.com/macros/s/AKfycbzE_qOlCSr4kKrCEoB
 
 const UC_SOURCE = 'Sales App';                    // stamped on every receipt this app issues; the companion app sends 'Companion App'
 
-const UC_APP_URL = 'www.ucfilters.com/app';      // ← CONFIRM: where customers sign up for the companion app
+const UC_APP_URL = 'app.ucfilters.com';      // where customers sign up for the companion app
 
 /* YOUR LOGO. The app tries these in order and uses the first that loads.
    Most reliable: put a copy of the logo, named logo.png, in the SAME folder as
@@ -1444,7 +1457,7 @@ $('teamAddGo').onclick = function () {
 };
 
 /* ── office link: shows exactly why receipts are or are not reaching the office ── */
-var UC_BUILD = '1.9.3 · 15 Nov 2026';
+var UC_BUILD = '1.9.5 · 17 Nov 2026';
 function paintLink() {
   var a = store(), w = a.filter(isPending).length, at = ls('ucRosterAt');
   $('linkInfo').innerHTML = 'App ' + esc(UC_BUILD) + ' · device ' + esc(deviceId()) + ' · ' + (STANDALONE ? 'Home Screen app' : (IOS ? 'Safari tab' : 'browser tab')) + ' · ' + a.length + ' receipt(s) stored here' + '<br>Office address …' + esc(UC_LEADS_URL.slice(-18, -5))
