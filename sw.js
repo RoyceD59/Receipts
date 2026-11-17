@@ -3,7 +3,7 @@
    It keeps a copy of the app on the device so it opens with no signal.
    Strategy: show the saved copy instantly, fetch a fresh one in the background.
    An update you upload therefore appears on the SECOND open, not the first. */
-const CACHE = 'uc-receipt-v1-9-4';
+const CACHE = 'uc-receipt-v1-9-6';
 const SHELL = ['./', 'manifest.webmanifest', 'logo.png', 'icon-192.png', 'icon-512.png', 'apple-touch-icon.png'];
 /* each file on its own, so a missing optional file (e.g. logo.png) cannot stop the app being saved */
 self.addEventListener('install', e => { self.skipWaiting(); e.waitUntil(caches.open(CACHE).then(c => Promise.all(SHELL.map(u => c.add(u).catch(() => null))))); });
